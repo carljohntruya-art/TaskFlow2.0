@@ -1,3 +1,4 @@
+.env
 # Logs
 logs
 *.log
@@ -22,3 +23,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cypress
+cypress/screenshots
+cypress/videos
+
+# Build/Cache
+.vite
+.cache
+*.tsbuildinfo
