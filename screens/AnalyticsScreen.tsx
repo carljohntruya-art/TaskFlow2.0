@@ -18,7 +18,7 @@ const pieData = [
   { name: 'Other', value: 200, color: '#334155' },
 ];
 
-const LOGO_URL = "https://cdn-icons-png.flaticon.com/512/9512/9512660.png";
+const LOGO_URL = "/asssets/logo.png";
 
 const AnalyticsScreen: React.FC = () => {
   return (

@@ -10,7 +10,7 @@ interface LoginScreenProps {
   onLogin: (user: User) => void;
 }
 
-const LOGO_URL = "https://cdn-icons-png.flaticon.com/512/9512/9512660.png";
+const LOGO_URL = "/asssets/logo.png";
 
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {

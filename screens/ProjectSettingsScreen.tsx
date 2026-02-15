@@ -120,8 +120,8 @@ const ProjectSettingsScreen: React.FC = () => {
         </section>
       </main>
 
-      <div className="fixed bottom-0 left-0 w-full p-4 z-40 bg-gradient-to-t from-background-dark via-background-dark/95 to-transparent pt-10 max-w-md mx-auto">
-         <button className="w-full py-3.5 rounded-xl bg-gradient-to-r from-primary to-cyan-500 text-white font-semibold text-sm shadow-lg hover:shadow-cyan-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+      <div className="fixed bottom-0 left-0 w-full p-4 z-40 bg-linear-to-t from-background-dark via-background-dark/95 to-transparent pt-10 max-w-md mx-auto">
+         <button className="w-full py-3.5 rounded-xl bg-linear-to-r from-primary to-cyan-500 text-white font-semibold text-sm shadow-lg hover:shadow-cyan-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
             Save Changes
          </button>
       </div>

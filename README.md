@@ -1,20 +1,101 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🚀 TaskFlow 2.0 - Premium Task Management System
 
-# Run and deploy your AI Studio app
+TaskFlow 2.0 is a state-of-the-art Task Management System built for productivity and security. It features a modern, responsive UI with glassmorphic elements, robust administrator tools, and secure authentication.
 
-This contains everything you need to run your app locally.
+![TaskFlow Banner](https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1UJgBiwMNcD2gErb9EDvbr4jaa3ss8x_C
+---
 
-## Run Locally
+## ✨ Key Features
 
-**Prerequisites:**  Node.js
+### 🛡️ Secure Authentication
 
+- **Email Verification**: Integrated with EmailJS for secure 6-digit OTP verification.
+- **Bot Protection**: Multi-layered defense including a Math CAPTCHA and an invisible HoneyPot field.
+- **Rate Limiting**: Built-in protection against brute-force login and registration attempts.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 📊 Task & Productivity
+
+- **Omni-Tasking**: Create, update, and categorize tasks with priority levels (High, Medium, Low).
+- **Visual Analytics**: Real-time productivity charts using Recharts.
+- **Offline Persistence**: Automatic data synchronization with LocalStorage to prevent data loss.
+
+### 👑 Admin Console
+
+- **Automatic Handover**: The first user to register is automatically promoted to System Administrator.
+- **System Monitoring**: Real-time overview of users and security events.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React 19 + Vite
+- **Styling**: Tailwind CSS (Glassmorphism & Dark Mode)
+- **Icons**: Lucide React
+- **Charts**: Recharts
+- **Authentication**: EmailJS
+- **Testing**: Cypress E2E
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [EmailJS Account](https://www.emailjs.com/) (for authentication)
+
+### Installation
+
+1. **Clone the project**
+
+   ```bash
+   git clone https://github.com/carljohntruya-art/TaskFlow2.0.git
+   cd TaskFlow2.0
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**
+   Create a `.env` file in the root directory:
+
+   ```env
+   VITE_EMAILJS_SERVICE_ID=your_service_id
+   VITE_EMAILJS_TEMPLATE_ID=your_template_id
+   VITE_EMAILJS_PUBLIC_KEY=your_public_key
+   ```
+
+4. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 🧪 Testing
+
+TaskFlow comes with a pre-configured Cypress suite. To run the tests:
+
+```bash
+# Open Cypress Dashboard
+npm run cy:open
+
+# Run tests in headless mode
+npm run cy:run
+```
+
+---
+
+## 📦 Deployment
+
+For a detailed walkthrough on deploying to **GitHub** and **Vercel**, please refer to the [Deployment Guide](./DEPLOYMENT_GUIDE.md).
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
