@@ -18,7 +18,7 @@ const pieData = [
   { name: 'Other', value: 200, color: '#334155' },
 ];
 
-const LOGO_URL = "/asssets/logo.png";
+const LOGO_URL = "/assets/logo.png";
 
 const AnalyticsScreen: React.FC = () => {
   return (

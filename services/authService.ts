@@ -190,7 +190,7 @@ export const authService = {
 
     try {
       const templateParams = {
-        to_email: email,
+        email: email, // Changed from to_email to match EmailJS settings
         to_name: name,
         verification_code: code,
       };

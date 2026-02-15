@@ -10,7 +10,7 @@ interface LoginScreenProps {
   onLogin: (user: User) => void;
 }
 
-const LOGO_URL = "/asssets/logo.png";
+const LOGO_URL = "/assets/logo.png";
 
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {

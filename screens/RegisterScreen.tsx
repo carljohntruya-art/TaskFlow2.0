@@ -10,7 +10,7 @@ interface RegisterScreenProps {
   onLogin: (user: UserType) => void;
 }
 
-const LOGO_URL = "/asssets/logo.png";
+const LOGO_URL = "/assets/logo.png";
 
 const RegisterScreen: React.FC<RegisterScreenProps> = ({ onLogin }) => {
   const navigate = useNavigate();
