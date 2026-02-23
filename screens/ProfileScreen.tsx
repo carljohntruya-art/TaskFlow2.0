@@ -2,17 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreVertical, Edit2, User, Bell, Palette, ChevronRight, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
-import { User as UserType } from '../types';
+import { useAuthStore } from '../store/authStore';
 
-interface ProfileScreenProps {
-  user: UserType | null;
-  onLogout: () => void;
-}
-
-
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
+const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
-  // Fallback if user is null (shouldn't happen in flow, but safe)
+  const { user, logout } = useAuthStore();
+  
+  // Fallback if user is null
   const userData = user || { name: 'Guest', email: 'guest@taskflow.com', role: 'user', avatar: 'https://picsum.photos/200' };
 
   return (
@@ -136,7 +132,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
 
       {/* Logout */}
       <button 
-        onClick={onLogout}
+        onClick={logout}
         className="w-full py-4 rounded-2xl border border-red-500/20 bg-red-500/5 text-red-500 font-medium hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
       >
         <LogOut size={18} />

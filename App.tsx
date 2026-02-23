@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { User } from './types';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -13,25 +12,28 @@ import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import BottomNav from './components/BottomNav';
 import NewTaskModal from './components/NewTaskModal';
 import ProtectedRoute from './components/ProtectedRoute';
+import UnauthorizedScreen from './screens/UnauthorizedScreen';
+import { useAuthStore } from './store/authStore';
 
 const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const navigate = useNavigate();
   const location = useLocation();
+  const { user, isLoading, checkAuth } = useAuthStore();
 
-  const handleLogin = (authenticatedUser: User) => {
-    setUser(authenticatedUser);
-    navigate('/home');
-  };
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
-  const handleLogout = () => {
-    setUser(null);
-    navigate('/');
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen max-w-md mx-auto bg-slate-50 dark:bg-background-dark flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+      </div>
+    );
+  }
 
   // Determine if we should hide bottom nav
-  const authRoutes = ['/', '/register'];
+  const authRoutes = ['/', '/register', '/unauthorized'];
   const fullScreenRoutes = ['/settings', '/admin'];
   const hideBottomNav = authRoutes.includes(location.pathname) || fullScreenRoutes.includes(location.pathname);
 
@@ -47,47 +49,48 @@ const App: React.FC = () => {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={
-            user ? <Navigate to="/home" replace /> : <LoginScreen onLogin={handleLogin} />
+            user ? <Navigate to="/home" replace /> : <LoginScreen />
           } />
           <Route path="/register" element={
-            user ? <Navigate to="/home" replace /> : <RegisterScreen onLogin={handleLogin} />
+            user ? <Navigate to="/home" replace /> : <RegisterScreen />
           } />
+          <Route path="/unauthorized" element={<UnauthorizedScreen />} />
 
           {/* Protected Routes */}
           <Route path="/home" element={
-            <ProtectedRoute user={user}>
-              <HomeScreen user={user} />
+            <ProtectedRoute>
+              <HomeScreen />
             </ProtectedRoute>
           } />
           <Route path="/tasks" element={
-            <ProtectedRoute user={user}>
+            <ProtectedRoute>
               <TasksScreen />
             </ProtectedRoute>
           } />
           <Route path="/analytics" element={
-            <ProtectedRoute user={user}>
+            <ProtectedRoute>
               <AnalyticsScreen />
             </ProtectedRoute>
           } />
           <Route path="/calendar" element={
-            <ProtectedRoute user={user}>
+            <ProtectedRoute>
               <CalendarScreen />
             </ProtectedRoute>
           } />
           <Route path="/profile" element={
-            <ProtectedRoute user={user}>
-              <ProfileScreen user={user} onLogout={handleLogout} />
+            <ProtectedRoute>
+              <ProfileScreen />
             </ProtectedRoute>
           } />
           <Route path="/settings" element={
-            <ProtectedRoute user={user}>
+            <ProtectedRoute>
               <ProjectSettingsScreen />
             </ProtectedRoute>
           } />
 
           {/* Admin Only Route */}
           <Route path="/admin" element={
-            <ProtectedRoute user={user} requireAdmin={true}>
+            <ProtectedRoute requireAdmin={true}>
               <AdminDashboardScreen />
             </ProtectedRoute>
           } />

@@ -1,103 +1,84 @@
-TASKFLOW 2.0
-Deployment and Configuration Guide
+# TaskFlow 2.0 Deployment Guide
 
-This guide covers the end-to-end process of deploying TaskFlow 2.0, including repository initialization, EmailJS configuration for secure authentication, and hosting on Vercel.
-
----
-
-1. INITIALIZING THE REPOSITORY
-
-Follow these steps to host your code on GitHub:
-
-1. Create Repository
-   Go to GitHub and create a new repository named TaskFlow2.0.
-
-2. Initialize Locally
-   Open terminal in your project root:
-   git init
-   git add .
-   git commit -m "feat: initial commit for TaskFlow 2.0"
-
-3. Connect and Push
-   git branch -M main
-   git remote add origin https://github.com/carljohntruya-art/TaskFlow2.0.git
-   git push -u origin main
+This guide ensures your React (Vercel) and Node.js (Railway) production environments are perfectly synced.
 
 ---
 
-2. SETTING UP EMAILJS
+## Phase 1: Railway Backend Status
 
-TaskFlow uses EmailJS to send verification codes to users.
+Status: You have already completed the variable setup.
 
-Step 1: Create Account
-Sign up at EmailJS.com.
+1. Verify Database:
+   - In Railway, ensure you see a PostgreSQL service in the same project as your API.
+   - Click on the API service then go to Variables. DATABASE_URL must be present.
 
-Step 2: Add Email Service
-
-1. Go to Email Services > Add New Service.
-2. Select your provider (e.g., Gmail, Outlook).
-3. Connect your account and click Create Service.
-4. Copy the Service ID (e.g., service_xxxxxx).
-
-Step 3: Create Email Template
-
-1. Go to Email Templates > Create New Template.
-2. Design the Template: Use the following variables in your content:
-   - Recipient Email: {{to_email}}
-   - Recipient Name: {{to_name}}
-   - Verification Code: {{verification_code}}
-3. Save the Template.
-4. Copy the Template ID (e.g., template_xxxxxx).
-
-Step 4: Get Public Key
-
-1. Go to Account or Account Settings.
-2. Copy the Public Key (e.g., pk_xxxxx).
+2. Expose the API:
+   - Click on your backend service (TaskFlow2.0_server).
+   - Go to Settings then Networking.
+   - Under Public Domain, click Generate Domain (if not already done).
+   - Copy the URL (Example: https://taskflow20-server-production.up.railway.app).
 
 ---
 
-3. VERCEL PROJECT SETUP
+## Phase 2: Vercel Frontend Setup
 
-Hosting the frontend and environment variables.
+1. Open Vercel Dashboard:
+   - Go to your TaskFlow 2.0 project settings.
 
-Step 1: Import Project
+2. Add Environment Variable:
+   - Navigate to Settings then Environment Variables.
+   - Add a new variable:
+     - Key: VITE_API_URL
+     - Value: Paste your Railway Domain (Include the https:// prefix)
+   - Ensure Production, Preview, and Development are checked.
+   - Click Save.
 
-1. Log in to Vercel.com.
-2. Click Add New > Project.
-3. Import the TaskFlow2.0 repository from GitHub.
-
-Step 2: Configure Environment Variables
-In Vercel deployment settings, under Environment Variables, add:
-
-VITE_EMAILJS_SERVICE_ID = (Your Service ID)
-VITE_EMAILJS_TEMPLATE_ID = (Your Template ID)
-VITE_EMAILJS_PUBLIC_KEY = (Your Public Key)
-
-Step 3: Build and Deploy
-
-1. Framework Preset: Select Vite.
-2. Build Command: npm run build.
-3. Output Directory: dist.
-4. Click Deploy.
+3. Trigger Redeploy (Critical):
+   - Vercel bakes environment variables into the React code at build-time. You must redeploy for the change to take effect.
+   - Go to the Deployments tab.
+   - Find your latest deployment.
+   - Click the three dots (...) and select Redeploy.
 
 ---
 
-4. VERIFICATION CHECK
+## Phase 3: SPA Routing Fix (Vercel)
 
-- Once deployed, visit your Vercel URL.
-- Register a new account.
-- Check if you receive the verification email.
-- Admin Note: The very first user to register will be assigned the Administrator role.
+The vercel.json file has been added to your project root to prevent 404 errors when refreshing pages.
 
----
+File: /vercel.json
 
-TROUBLESHOOTING
-
-Routing
-If you experience 404 errors when refreshing subpages, ensure vercel.json exists in your root with:
+```json
 {
-"rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
+```
 
-Email Delivery
-Check your EmailJS dashboard for "Requests" to monitor error logs or daily quota limits.
+---
+
+## Phase 4: Verification Checklist
+
+Once the Vercel redeploy finishes, test these in order:
+
+1. CORS and Connection: Open the live site. Does the login page load without a Network Error?
+2. Registration: Create a new user.
+   - Open Browser DevTools (F12) then the Network Tab.
+   - Look for the POST /api/auth/register request. It should be 201 Created.
+3. Cookie Validation:
+   - Go to DevTools then Application then Cookies.
+   - You should see a jwt cookie.
+   - It must have the Secure flag checked and SameSite set to None.
+4. Data Persistence:
+   - Create a task.
+   - Refresh the page.
+   - If the task stays there, your database connection is 100% successful.
+5. Logout: Click Logout. The cookie should disappear, and you should be redirected to the landing page.
+
+---
+
+## Troubleshooting Cookie Issues
+
+If you can log in but refreshing the page logs you out:
+
+1. Check Railway Variables: COOKIE_SAME_SITE must be none.
+2. Check Railway Variables: FRONTEND_ORIGIN must match your Vercel URL exactly.
+3. Ensure Vercel redeployed after you saved the VITE_API_URL.

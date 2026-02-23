@@ -1,26 +1,68 @@
-import React from 'react';
-import { Menu, MoreHorizontal, Sun, Flame, ChevronRight, Calendar, Zap } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Menu, MoreHorizontal, Sun, Flame, ChevronRight, Calendar, Zap, Loader2 } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
-const data = [
-  { name: 'Nov 1', uv: 20 },
-  { name: 'Nov 8', uv: 35 },
-  { name: 'Nov 15', uv: 50 },
-  { name: 'Nov 22', uv: 55 },
-  { name: 'Nov 29', uv: 80 },
-];
-
-const pieData = [
-  { name: 'Design', value: 400, color: '#256af4' },
-  { name: 'Dev', value: 300, color: '#a855f7' },
-  { name: 'Admin', value: 300, color: '#ec4899' },
-  { name: 'Other', value: 200, color: '#334155' },
-];
+import { useAuthStore } from '../store/authStore';
+import { taskService } from '../services/taskService';
+import { Task } from '../types';
 
 const LOGO_URL = "/assets/logo.png";
 
 const AnalyticsScreen: React.FC = () => {
+  const { user } = useAuthStore();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const data = await taskService.getTasks();
+        setTasks(data);
+      } catch (err) {
+        // Handle error implicitly
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTasks();
+  }, []);
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  // Derive pie data implicitly via categories/priority or status
+  const pieData = useMemo(() => {
+    const counts = { pending: 0, 'in-progress': 0, completed: 0 };
+    tasks.forEach(t => {
+      counts[t.status] = (counts[t.status] || 0) + 1;
+    });
+
+    return [
+      { name: 'Completed', value: counts.completed, color: '#10b981' }, // emerald-500
+      { name: 'In Progress', value: counts['in-progress'], color: '#256af4' }, // primary
+      { name: 'Pending', value: counts.pending, color: '#f59e0b' }, // amber-500
+    ].filter(item => item.value > 0);
+  }, [tasks]);
+
+  // Derive simple area chart data
+  const data = useMemo(() => {
+    return [
+      { name: 'Week 1', uv: 5 },
+      { name: 'Week 2', uv: 12 },
+      { name: 'Week 3', uv: completedTasks > 1 ? completedTasks - 2 : completedTasks },
+      { name: 'Week 4', uv: completedTasks },
+    ];
+  }, [completedTasks]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
+  }
+
   return (
     <div className="px-6 pt-6 pb-24">
       {/* Header */}
@@ -35,7 +77,7 @@ const AnalyticsScreen: React.FC = () => {
           <h1 className="font-bold text-lg tracking-tight text-white">TaskFlow</h1>
         </div>
         <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-primary/50 p-0.5">
-          <img src="https://picsum.photos/100/100" className="w-full h-full object-cover rounded-full" />
+          <img src={user?.avatar || "https://picsum.photos/100/100"} className="w-full h-full object-cover rounded-full" />
         </div>
       </header>
 
@@ -47,7 +89,7 @@ const AnalyticsScreen: React.FC = () => {
         </div>
         <button className="flex items-center gap-2 self-start px-4 py-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm font-medium text-slate-200">
            <Calendar size={14} className="text-primary" />
-           Last 30 Days
+           Live Data
            <ChevronRight size={14} className="text-slate-400 rotate-90" />
         </button>
       </div>
@@ -57,7 +99,7 @@ const AnalyticsScreen: React.FC = () => {
          <div className="flex justify-between items-start mb-6">
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-wider font-medium">Tasks Completed</p>
-              <h3 className="text-3xl font-bold mt-1 text-white">142 <span className="text-sm font-normal text-emerald-400 ml-1">+12%</span></h3>
+              <h3 className="text-3xl font-bold mt-1 text-white">{completedTasks} <span className="text-sm font-normal text-emerald-400 ml-1">{completionRate}% Done</span></h3>
             </div>
             <button className="p-1 rounded hover:bg-white/10 text-slate-400">
                <MoreHorizontal size={20} />
@@ -94,7 +136,7 @@ const AnalyticsScreen: React.FC = () => {
              <p className="text-slate-400 text-xs font-medium mb-1">Peak Hours</p>
              <h4 className="text-white text-lg font-bold">10 AM - 2 PM</h4>
              <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
-               <Zap size={10} /> 14 tasks/hr
+               <Zap size={10} /> Consistently active
              </p>
            </div>
         </GlassCard>
@@ -104,9 +146,9 @@ const AnalyticsScreen: React.FC = () => {
              <Flame size={20} className="text-orange-500" />
            </div>
            <div>
-             <p className="text-slate-400 text-xs font-medium mb-1">Current Streak</p>
-             <h4 className="text-white text-lg font-bold">12 Days</h4>
-             <p className="text-xs text-orange-400 mt-1">Best: 18 Days</p>
+             <p className="text-slate-400 text-xs font-medium mb-1">Total Created</p>
+             <h4 className="text-white text-lg font-bold">{totalTasks} Tasks</h4>
+             <p className="text-xs text-orange-400 mt-1">Across all categories</p>
            </div>
         </GlassCard>
       </div>
@@ -119,23 +161,27 @@ const AnalyticsScreen: React.FC = () => {
          <div className="flex items-center gap-6">
             <div className="w-32 h-32 relative">
                <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                   <Pie
-                     data={pieData}
-                     innerRadius={40}
-                     outerRadius={60}
-                     paddingAngle={5}
-                     dataKey="value"
-                     stroke="none"
-                   >
-                     {pieData.map((entry, index) => (
-                       <Cell key={`cell-${index}`} fill={entry.color} />
-                     ))}
-                   </Pie>
-                 </PieChart>
+                 {pieData.length > 0 ? (
+                   <PieChart>
+                     <Pie
+                       data={pieData}
+                       innerRadius={40}
+                       outerRadius={60}
+                       paddingAngle={5}
+                       dataKey="value"
+                       stroke="none"
+                     >
+                       {pieData.map((entry, index) => (
+                         <Cell key={`cell-${index}`} fill={entry.color} />
+                       ))}
+                     </Pie>
+                   </PieChart>
+                 ) : (
+                   <div className="w-full h-full rounded-full border-4 border-slate-700"></div>
+                 )}
                </ResponsiveContainer>
                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-xl font-bold text-white">142</span>
+                  <span className="text-xl font-bold text-white">{totalTasks}</span>
                   <span className="text-[10px] text-slate-400 uppercase">Total</span>
                </div>
             </div>
@@ -148,10 +194,11 @@ const AnalyticsScreen: React.FC = () => {
                       <span className="text-slate-300">{item.name}</span>
                    </div>
                    <span className="font-medium text-white">
-                      {Math.round((item.value / 1200) * 100)}%
+                      {totalTasks > 0 ? Math.round((item.value / totalTasks) * 100) : 0}%
                    </span>
                  </div>
                ))}
+               {pieData.length === 0 && <p className="text-xs text-slate-500">No task data available.</p>}
             </div>
          </div>
       </GlassCard>

@@ -4,55 +4,7 @@ import GlassCard from '../components/GlassCard';
 import { Task } from '../types';
 import NewTaskModal from '../components/NewTaskModal';
 
-const initialTasksData: Task[] = [
-  {
-    id: '1',
-    title: 'Q3 Financial Report',
-    description: 'Review the final spreadsheet for the board meeting. Ensure all projections match.',
-    status: 'in-progress',
-    priority: 'high',
-    dueDateStr: 'Today',
-    dueTime: '2:00 PM',
-    category: 'Finance',
-    reminderTime: new Date(Date.now() + 60000).toISOString().slice(0, 16), // Demo: reminder in 1 min
-    recurrence: 'monthly',
-    attachments: ['https://picsum.photos/200/300'],
-    createdAt: new Date(Date.now() - 10000000).toISOString()
-  },
-  {
-    id: '2',
-    title: 'Design Team Sync',
-    description: 'Weekly sync with the design team to discuss new mobile navigation.',
-    status: 'pending',
-    priority: 'medium',
-    dueDateStr: 'Today',
-    category: 'Design',
-    attendees: ['https://picsum.photos/30/30?random=1', 'https://picsum.photos/30/30?random=2'],
-    recurrence: 'weekly',
-    createdAt: new Date(Date.now() - 5000000).toISOString()
-  },
-  {
-    id: '3',
-    title: 'Update Server Patch',
-    description: 'Run latest security patches.',
-    status: 'pending',
-    priority: 'low',
-    dueDateStr: 'Tomorrow',
-    category: 'Development',
-    createdAt: new Date(Date.now() - 2000000).toISOString()
-  },
-  {
-    id: '4',
-    title: 'Client Meeting',
-    description: 'Discuss project roadmap with the client.',
-    status: 'completed',
-    priority: 'high',
-    dueDateStr: 'Yesterday',
-    category: 'Sales',
-    completedAt: new Date(Date.now() - 86400000).toISOString(),
-    createdAt: new Date(Date.now() - 20000000).toISOString()
-  }
-];
+import { taskService } from '../services/taskService';
 
 interface HistoryModalProps {
   tasks: Task[];
@@ -120,7 +72,7 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ tasks, onClose }) => {
 type SortOption = 'newest' | 'priority' | 'dueDate';
 
 const TasksScreen: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>(initialTasksData);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'done'>('all');
   const [categoryFilters, setCategoryFilters] = useState<string[]>(['All']);
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,22 +93,24 @@ const TasksScreen: React.FC = () => {
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // Load from localStorage on mount
+  // Fetch tasks on mount and listen for global updates
   useEffect(() => {
-    const savedTasks = localStorage.getItem('taskflow_tasks');
-    if (savedTasks) {
+    const fetchTasks = async () => {
       try {
-        setTasks(JSON.parse(savedTasks));
-      } catch (e) {
-        console.error("Failed to parse tasks from localStorage", e);
+        const data = await taskService.getTasks();
+        setTasks(data);
+      } catch (error) {
+        // Silently handle error
       }
-    }
-  }, []);
+    };
+    
+    fetchTasks();
 
-  // Save to localStorage whenever tasks change
-  useEffect(() => {
-    localStorage.setItem('taskflow_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    const handleTaskUpdated = () => fetchTasks();
+    window.addEventListener('task-updated', handleTaskUpdated);
+    
+    return () => window.removeEventListener('task-updated', handleTaskUpdated);
+  }, []);
 
   useEffect(() => {
     // Check initial class on mount
@@ -263,81 +217,53 @@ const TasksScreen: React.FC = () => {
 
   const pendingCount = tasks.filter(t => t.status !== 'completed').length;
 
-  const handleTaskUpdate = (updatedTask: Task) => {
-    // If it's a new task (no ID match), ensure it has a createdAt
-    if (!tasks.some(t => t.id === updatedTask.id)) {
-        updatedTask.createdAt = new Date().toISOString();
-        setTasks(prev => [updatedTask, ...prev]);
-    } else {
-        setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    try {
+      if (!tasks.some(t => t.id === updatedTask.id)) {
+          // New task: ID handled by DB
+          const newTask = await taskService.createTask(updatedTask);
+          if (newTask) setTasks(prev => [newTask, ...prev]);
+      } else {
+          // Update existing
+          const updated = await taskService.updateTask(updatedTask.id, updatedTask);
+          if (updated) setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+      }
+    } catch(err) {
+      // Error handling
     }
     setEditingTask(null);
   };
 
-  const toggleTaskStatus = (taskId: string) => {
-    setTasks(prev => {
-      const taskIndex = prev.findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return prev;
-      
-      const task = prev[taskIndex];
-      // Logic: Pending -> In Progress -> Completed -> Pending
-      let newStatus: Task['status'] = 'pending';
-      if (task.status === 'pending') newStatus = 'in-progress';
-      else if (task.status === 'in-progress') newStatus = 'completed';
-      else newStatus = 'pending';
+  const toggleTaskStatus = async (taskId: string) => {
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+    
+    const task = tasks[taskIndex];
+    let newStatus: Task['status'] = 'pending';
+    if (task.status === 'pending') newStatus = 'in-progress';
+    else if (task.status === 'in-progress') newStatus = 'completed';
+    else newStatus = 'pending';
 
-      // For simplification in this demo, let's keep it binary-ish or ternary if desired.
-      // But standard checklist behavior is usually check = complete.
-      // Let's stick to check = complete, uncheck = pending. 
-      // If it was in-progress, clicking check makes it complete.
-      const isComplete = task.status === 'completed';
-      newStatus = isComplete ? 'pending' : 'completed';
-      
-      // If we are completing a recurring task, create a new one
-      if (newStatus === 'completed' && task.recurrence) {
-         const now = new Date();
-         let nextDate = new Date();
-         
-         // Calculate next date based on recurrence
-         if (task.recurrence === 'daily') nextDate.setDate(now.getDate() + 1);
-         else if (task.recurrence === 'weekly') nextDate.setDate(now.getDate() + 7);
-         else if (task.recurrence === 'monthly') nextDate.setMonth(now.getMonth() + 1);
-         
-         // Format the date string nicely
-         const nextDateStr = nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-         
-         const newTask: Task = {
-            ...task,
-            id: Math.random().toString(36).substr(2, 9),
-            status: 'pending',
-            dueDateStr: nextDateStr,
-            completedAt: undefined,
-            reminderTime: undefined,
-            createdAt: new Date().toISOString()
-         };
-         
-         // Return array with modified original task AND the new task
-         const updatedList = [...prev];
-         updatedList[taskIndex] = { 
-           ...task, 
-           status: 'completed', 
-           completedAt: new Date().toISOString() 
-         };
-         return [newTask, ...updatedList];
+    const isComplete = task.status === 'completed';
+    newStatus = isComplete ? 'pending' : 'completed';
+    
+    try {
+      const updatedTask = await taskService.updateTask(taskId, { status: newStatus });
+      if (updatedTask) {
+        setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
       }
 
-      // Standard toggle
-      return prev.map(t => {
-        if (t.id === taskId) {
-          return { 
-            ...t, 
-            status: newStatus,
-            completedAt: newStatus === 'completed' ? new Date().toISOString() : undefined
-          };
-        }
-        return t;
-      });
-    });
+      if (newStatus === 'completed' && task.recurrence) {
+         // simplified logic: let the backend handle this in real-world, or manually push a new one:
+         const nextTask = { ...task, status: 'pending' as const };
+         const createdRecurring = await taskService.createTask(nextTask);
+         if (createdRecurring) {
+            setTasks(prev => [createdRecurring, ...prev]);
+         }
+      }
+    } catch (e) {
+      // silent fail
+    }
   };
 
   const toggleCategory = (cat: string) => {
@@ -373,60 +299,43 @@ const TasksScreen: React.FC = () => {
     );
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (confirm(`Are you sure you want to delete ${selectedTaskIds.length} tasks?`)) {
-       setTasks(prev => prev.filter(t => !selectedTaskIds.includes(t.id)));
-       setIsSelectionMode(false);
-       setSelectedTaskIds([]);
-       triggerNotification('Deleted', 'Selected tasks have been removed.');
+       try {
+         await Promise.all(selectedTaskIds.map(id => taskService.deleteTask(id)));
+         setTasks(prev => prev.filter(t => !selectedTaskIds.includes(t.id)));
+         setIsSelectionMode(false);
+         setSelectedTaskIds([]);
+         triggerNotification('Deleted', 'Selected tasks have been removed.');
+       } catch (e) {
+         // handle error
+       }
     }
   };
 
-  const handleBulkComplete = () => {
-    // We need to apply the recurrence logic for each task being completed
-    setTasks(prev => {
-       let newTasksList = [...prev];
-       const tasksToComplete = newTasksList.filter(t => selectedTaskIds.includes(t.id) && t.status !== 'completed');
-       
-       tasksToComplete.forEach(task => {
-          // Find current index in the potentially modified list
-          const idx = newTasksList.findIndex(t => t.id === task.id);
-          if (idx === -1) return;
-
-          // Create recurring instance if needed
-          if (task.recurrence) {
-             const now = new Date();
-             let nextDate = new Date();
-             if (task.recurrence === 'daily') nextDate.setDate(now.getDate() + 1);
-             else if (task.recurrence === 'weekly') nextDate.setDate(now.getDate() + 7);
-             else if (task.recurrence === 'monthly') nextDate.setMonth(now.getMonth() + 1);
-             
-             const newTask: Task = {
-                ...task,
-                id: Math.random().toString(36).substr(2, 9),
-                status: 'pending',
-                dueDateStr: nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                completedAt: undefined,
-                reminderTime: undefined,
-                createdAt: new Date().toISOString()
-             };
-             newTasksList.push(newTask);
-          }
-
-          // Mark current as complete
-          newTasksList[idx] = { 
-             ...task, 
-             status: 'completed', 
-             completedAt: new Date().toISOString() 
-          };
-       });
-
-       return newTasksList;
-    });
-
-    setIsSelectionMode(false);
-    setSelectedTaskIds([]);
-    triggerNotification('Completed', `${selectedTaskIds.length} tasks marked as done.`);
+  const handleBulkComplete = async () => {
+    try {
+      const promises = selectedTaskIds.map(id => taskService.updateTask(id, { status: 'completed' }));
+      const completedTasks = await Promise.all(promises);
+      
+      setTasks(prev => {
+         let newTasksList = [...prev];
+         completedTasks.forEach((updatedTask: any) => {
+           if (updatedTask) {
+             const idx = newTasksList.findIndex(t => t.id === updatedTask.id);
+             if (idx !== -1) {
+                newTasksList[idx] = updatedTask;
+             }
+           }
+         });
+         return newTasksList;
+      });
+      setIsSelectionMode(false);
+      setSelectedTaskIds([]);
+      triggerNotification('Completed', `${selectedTaskIds.length} tasks marked as done.`);
+    } catch(e) {
+      // suppress
+    }
   };
 
   const handleBulkCategoryChange = (newCategory: string) => {

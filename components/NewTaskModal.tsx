@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, AlignLeft, BarChart2, Folder, ChevronDown, Bell, Repeat, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import GlassCard from './GlassCard';
 import { Task } from '../types';
 
@@ -40,24 +41,37 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
     }
   }, [task]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const sanitizedTitle = DOMPurify.sanitize(title);
+    const sanitizedDescription = DOMPurify.sanitize(description);
+
+    const updatedTask: Task = {
+      id: task?.id || Math.random().toString(36).substr(2, 9),
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      priority,
+      status: task?.status || 'pending',
+      dueDateStr: task?.dueDateStr || 'Today',
+      dueTime: task?.dueTime,
+      category: category,
+      attendees: task?.attendees,
+      reminderTime: reminderTime || undefined,
+      recurrence: recurrence || undefined,
+      attachments: attachments,
+    };
+
     if (onSave) {
-      const updatedTask: Task = {
-        id: task?.id || Math.random().toString(36).substr(2, 9),
-        title,
-        description,
-        priority,
-        status: task?.status || 'pending',
-        dueDateStr: task?.dueDateStr || 'Today',
-        dueTime: task?.dueTime,
-        category: category,
-        attendees: task?.attendees,
-        reminderTime: reminderTime || undefined,
-        recurrence: recurrence || undefined,
-        attachments: attachments,
-      };
       onSave(updatedTask);
+    } else {
+      // Create directly using API if accessed from global BottomNav
+      try {
+         const { taskService } = await import('../services/taskService');
+         await taskService.createTask(updatedTask);
+         window.dispatchEvent(new Event('task-updated'));
+      } catch (err) {
+         // Silently fail for now
+      }
     }
     onClose();
   };
