@@ -12,7 +12,7 @@ import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import BottomNav from './components/BottomNav';
 import NewTaskModal from './components/NewTaskModal';
 import ProtectedRoute from './components/ProtectedRoute';
-import UnauthorizedScreen from './screens/UnauthorizedScreen';
+import UnauthorizedScreen from './screens/UnauthorizedScreen.tsx';
 import { useAuthStore } from './store/authStore';
 
 const App: React.FC = () => {

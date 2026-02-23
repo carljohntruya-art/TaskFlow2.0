@@ -71,8 +71,21 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ tasks, onClose }) => {
 
 type SortOption = 'newest' | 'priority' | 'dueDate';
 
+// Skeleton card shown while tasks are loading
+const TaskSkeleton: React.FC = () => (
+  <div className="animate-pulse flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 mb-3">
+    <div className="w-6 h-6 rounded-full bg-slate-700 mt-1 shrink-0" />
+    <div className="flex-1 space-y-2">
+      <div className="h-4 bg-slate-700 rounded w-3/4" />
+      <div className="h-3 bg-slate-700/60 rounded w-full" />
+      <div className="h-3 bg-slate-700/40 rounded w-1/2" />
+    </div>
+  </div>
+);
+
 const TasksScreen: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'done'>('all');
   const [categoryFilters, setCategoryFilters] = useState<string[]>(['All']);
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,10 +110,13 @@ const TasksScreen: React.FC = () => {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
+        setIsLoading(true);
         const data = await taskService.getTasks();
         setTasks(data);
       } catch (error) {
         // Silently handle error
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -561,12 +577,18 @@ const TasksScreen: React.FC = () => {
         <div className="flex items-center space-x-4 py-2 opacity-80">
           <div className="h-px flex-1 bg-linear-to-r from-transparent to-slate-200 dark:to-slate-700"></div>
           <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-             {sortedTasks.length} {filter === 'done' ? 'Completed' : 'Tasks'}
+             {isLoading ? 'Loading...' : `${sortedTasks.length} ${filter === 'done' ? 'Completed' : 'Tasks'}`}
           </span>
           <div className="h-px flex-1 bg-linear-to-l from-transparent to-slate-200 dark:to-slate-700"></div>
         </div>
 
-        {sortedTasks.length === 0 ? (
+        {isLoading ? (
+          <>
+            <TaskSkeleton />
+            <TaskSkeleton />
+            <TaskSkeleton />
+          </>
+        ) : sortedTasks.length === 0 ? (
            <div className="text-center py-12 opacity-50 flex flex-col items-center">
               <div className="w-16 h-16 bg-slate-200 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
                  <Search size={32} className="text-slate-500 dark:text-slate-600" />

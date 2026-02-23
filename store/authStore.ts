@@ -30,5 +30,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   }
 }));
 
-// Set up interceptors to clear auth on 401
-setupInterceptors(() => useAuthStore.getState().setUser(null));
+// Set up interceptors to clear auth on 401, redirect on 403, show toast on 5xx/network errors
+setupInterceptors(
+  () => useAuthStore.getState().setUser(null),
+  (path: string) => { window.location.href = path; },
+  (msg: string) => { console.warn('[API Error]', msg); }
+);
