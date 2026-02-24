@@ -22,7 +22,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
   if (isLoading) {
     return (
