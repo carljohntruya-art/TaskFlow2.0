@@ -21,8 +21,10 @@ export const setupInterceptors = (
         const status = error.response.status;
 
         if (status === 401) {
+          // Silently clear auth state — do NOT redirect here.
+          // checkAuth() in authStore handles the null user state,
+          // and React routing will redirect to login naturally.
           clearAuth();
-          if (navigate) navigate('/');
         } else if (status === 403) {
           if (navigate) navigate('/unauthorized');
         } else if (status >= 500) {
