@@ -17,12 +17,16 @@ import { useAuthStore } from './store/authStore';
 
 const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const location = useLocation();
   const { user, isLoading, checkAuth } = useAuthStore();
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (!isInitialized) {
+      setIsInitialized(true);
+      checkAuth();
+    }
+  }, [isInitialized]);
 
   if (isLoading) {
     return (
