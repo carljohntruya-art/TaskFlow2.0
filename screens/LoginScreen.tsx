@@ -1,107 +1,393 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Mail,
-  Lock,
-  Loader2,
-  AlertCircle,
-  Check,
-  Github,
-  Chrome,
-} from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, CheckCircle2, ArrowRight, Chrome, Github } from 'lucide-react';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 
-// ─── Constants ─────────────────────────────────────────────────────────────
-const LOGO_URL = '/assets/logo.png';
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ── Inject global styles ──────────────────────────────────────────────────────
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
 
-// ─── Feature bullets ────────────────────────────────────────────────────────
-const FEATURES = [
-  'AI-powered task prioritization',
-  'Real-time team collaboration',
-  'Advanced analytics & insights',
-];
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ─── CSS-in-JS animations ──────────────────────────────────────────────────
-const KEYFRAMES = `
-  @keyframes logoFloat {
-    0%, 100% { transform: translateY(0px); }
-    50%       { transform: translateY(-4px); }
-  }
-  @keyframes fadeSlideDown {
-    from { opacity: 0; transform: translateY(-16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+  .tf-root {
+    display: flex;
+    flex-direction: row;
+    width: 100vw;
+    min-height: 100vh;
+    background: #060912;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    position: relative;
   }
 
-  /* ── Responsive visibility ───────────────────────────────────────── */
-  .lf-brand-panel  { display: none; }
-  .lf-mobile-logo  { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; }
-
-  @media (min-width: 768px) {
-    .lf-brand-panel  { display: block !important; }
-    .lf-mobile-logo  { display: none; }
-    /* Strip glass card on desktop — form sits directly on the panel bg */
-    .lf-form-shell {
-      background: transparent !important;
-      border: none !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      padding: 0 !important;
-      border-radius: 0 !important;
-    }
+  /* ── Background ── */
+  .tf-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 50% at 15% 15%, rgba(59,130,246,0.13) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 85% 8%,  rgba(139,92,246,0.09) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 95%, rgba(6,182,212,0.07)  0%, transparent 60%);
+  }
+  .tf-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 28px 28px;
   }
 
-  @media (max-width: 768px) {
-    .lf-brand-panel {
-      display: none !important;
-    }
-    .lf-form-panel {
-      width: 100vw !important;
-      min-height: 100vh !important;
-    }
+  /* ── Left panel ── */
+  .tf-left {
+    width: 45%;
+    min-width: 420px;
+    max-width: 540px;
+    min-height: 100vh;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 52px 48px;
+    border-right: 1px solid rgba(255,255,255,0.055);
+    background: rgba(255,255,255,0.018);
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .tf-left::before {
+    content: '';
+    position: absolute;
+    top: -120px; left: -120px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 70%);
+    pointer-events: none;
   }
 
-  /* ── Input focus glow ─────────────────────────────────────────────── */
-  .lf-input {
+  /* ── Right panel ── */
+  .tf-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 48px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tf-form-wrap {
     width: 100%;
-    padding: 14px 16px 14px 44px;
+    max-width: 400px;
+  }
+
+  /* ── Logo ── */
+  .tf-logo-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 68px;
+    height: 68px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, #1a3a6e 0%, #0d1f3c 100%);
+    border: 1px solid rgba(99,179,255,0.22);
+    box-shadow:
+      0 0 0 1px rgba(99,179,255,0.08),
+      0 8px 32px rgba(0,0,0,0.45),
+      0 0 60px rgba(59,130,246,0.12);
+    animation: logoFloat 3.5s ease-in-out infinite;
+  }
+  .tf-logo-wrap img {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(99,179,255,0.35));
+  }
+  .tf-pro-badge {
+    position: absolute;
+    top: -8px; right: -8px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 999px;
+    padding: 3px 7px;
+    font-size: 9px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.06em;
+    box-shadow: 0 2px 10px rgba(59,130,246,0.5);
+    font-family: 'Syne', sans-serif;
+  }
+
+  /* ── Left panel content ── */
+  .tf-brand-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-top: 20px;
+    letter-spacing: -0.01em;
+  }
+  .tf-brand-name span {
+    color: #3b82f6;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+  }
+
+  .tf-headline {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-top: 40px;
+    max-width: 340px;
+  }
+
+  .tf-subtext {
+    color: #4b5c73;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-top: 14px;
+    max-width: 320px;
+  }
+
+  .tf-features {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tf-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .tf-feature svg {
+    color: #3b82f6;
+    flex-shrink: 0;
+  }
+
+  .tf-testimonial {
+    margin-top: 48px;
+    padding: 20px 22px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+  }
+  .tf-testimonial p {
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1.65;
+    font-style: italic;
+  }
+  .tf-testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .tf-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    font-family: 'Syne', sans-serif;
+  }
+  .tf-author-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
+  .tf-author-role {
+    font-size: 11px;
+    color: #4b5c73;
+    margin-top: 1px;
+  }
+
+  /* ── Form ── */
+  .tf-welcome {
+    font-family: 'Syne', sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.1s;
+  }
+  .tf-welcome-sub {
+    color: #4b5c73;
+    font-size: 14px;
+    margin-top: 6px;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.15s;
+  }
+
+  .tf-field-group {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.2s;
+  }
+
+  .tf-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .tf-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .tf-forgot {
+    font-size: 12px;
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .tf-forgot:hover { text-decoration: underline; }
+
+  .tf-input-wrap {
+    position: relative;
+  }
+  .tf-input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #3d4f63;
+    transition: color 0.2s;
+    pointer-events: none;
+  }
+  .tf-input-icon-right {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #3d4f63;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+  }
+  .tf-input-icon-right:hover { color: #94a3b8; }
+
+  .tf-input {
+    width: 100%;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
-    color: #fff;
-    font-size: 15px;
+    padding: 13px 16px 13px 42px;
+    color: #e2e8f0;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s ease;
     outline: none;
-    transition: border 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   }
-  .lf-input::placeholder { color: #475569; }
-  .lf-input:focus {
+  .tf-input::placeholder { color: #2d3d52; }
+  .tf-input:focus {
     border-color: rgba(59,130,246,0.5);
     background: rgba(59,130,246,0.05);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
   }
-  .lf-input.error {
-    border-color: rgba(248,113,113,0.5);
-    box-shadow: 0 0 0 3px rgba(248,113,113,0.1);
+  .tf-input:focus + .tf-input-icon,
+  .tf-input-wrap:focus-within .tf-input-icon { color: #3b82f6; }
+
+  .tf-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 14px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 24px rgba(59,130,246,0.35);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.3s;
+  }
+  .tf-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(59,130,246,0.45);
+  }
+  .tf-btn:active:not(:disabled) { transform: translateY(0); }
+  .tf-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .tf-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.35s;
+  }
+  .tf-divider-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+  }
+  .tf-divider span {
+    color: #3d4f63;
+    font-size: 12px;
+    white-space: nowrap;
   }
 
-  /* ── Icon inside input colour change on focus ─────────────────────── */
-  .lf-field:focus-within .lf-icon { color: #3b82f6; }
-
-  /* ── OAuth button ─────────────────────────────────────────────────── */
-  .lf-oauth {
+  .tf-oauth {
+    display: flex;
+    gap: 12px;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.4s;
+  }
+  .tf-oauth-btn {
     flex: 1;
     display: flex;
     align-items: center;
@@ -111,759 +397,300 @@ const KEYFRAMES = `
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
-    color: #e2e8f0;
-    font-size: 14px;
+    color: #94a3b8;
+    font-size: 13px;
     font-weight: 500;
+    font-family: 'Inter', sans-serif;
     cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    transition: all 0.2s ease;
     min-height: 44px;
   }
-  .lf-oauth:hover {
+  .tf-oauth-btn:hover {
     background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.14);
     transform: translateY(-1px);
+    color: #e2e8f0;
   }
-  .lf-oauth:active { transform: translateY(0); }
 
-  /* ── Primary button ───────────────────────────────────────────────── */
-  .lf-submit {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 14px;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    border-radius: 12px;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
+  .tf-footer {
+    text-align: center;
+    margin-top: 24px;
+    color: #3d4f63;
+    font-size: 13px;
+    animation: fadeUp 0.5s ease both;
+    animation-delay: 0.45s;
+  }
+  .tf-footer a {
+    color: #3b82f6;
+    font-weight: 500;
+    text-decoration: none;
     cursor: pointer;
-    border: none;
-    box-shadow: 0 4px 24px rgba(59,130,246,0.35);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-    min-height: 48px;
   }
-  .lf-submit:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 32px rgba(59,130,246,0.45);
-  }
-  .lf-submit:active:not(:disabled) { transform: translateY(0); }
-  .lf-submit:disabled { opacity: 0.8; cursor: not-allowed; }
+  .tf-footer a:hover { text-decoration: underline; }
 
-  /* ── Entrance animations ──────────────────────────────────────────── */
-  .lf-anim-logo    { animation: fadeSlideDown 0.4s ease both; }
-  .lf-anim-heading { animation: fadeSlideUp   0.5s ease 0.1s both; }
-  .lf-anim-fields  { animation: fadeSlideUp   0.5s ease 0.2s both; }
-  .lf-anim-btn     { animation: fadeSlideUp   0.5s ease 0.3s both; }
-  .lf-anim-panel   { animation: fadeIn        0.6s ease both; }
+  /* ── Spinner ── */
+  .tf-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* ── Animations ── */
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-5px); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .tf-left { display: none !important; }
+    .tf-right { width: 100vw; padding: 32px 20px; }
+    .tf-form-wrap {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 24px;
+      padding: 32px 24px;
+      backdrop-filter: blur(20px);
+    }
+    .tf-mobile-logo {
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+  }
+  .tf-mobile-logo { display: none; }
 `;
 
-// ─── Testimonial ─────────────────────────────────────────────────────────
-const Testimonial: React.FC = () => (
-  <div
-    style={{
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.07)',
-      borderRadius: '16px',
-      padding: '16px',
-      maxWidth: '100%',
-      overflowWrap: 'break-word',
-    }}
-  >
-    <p
-      style={{
-        color: '#94a3b8',
-        fontSize: '14px',
-        lineHeight: '1.6',
-        marginBottom: '16px',
-        wordWrap: 'normal',
-        whiteSpace: 'normal',
-        overflowWrap: 'break-word',
-      }}
-    >
-      "TaskFlow transformed how our team ships. We cut planning overhead by 40% in the first
-      month alone."
-    </p>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      {/* Avatar */}
-      <div
-        style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '14px',
-          fontWeight: 700,
-          color: '#fff',
-          flexShrink: 0,
-        }}
-      >
-        AK
-      </div>
-      <div>
-        <p style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: 600, margin: 0 }}>
-          Alex Kim
-        </p>
-        <p style={{ color: '#475569', fontSize: '12px', margin: 0 }}>
-          Head of Product, Novex Labs
-        </p>
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Left brand panel ─────────────────────────────────────────────────────
-const BrandPanel: React.FC = () => (
-  <div
-    className="lf-anim-panel"
-    style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      padding: '48px 40px',
-      background: 'rgba(255,255,255,0.02)',
-      borderRight: '1px solid rgba(255,255,255,0.06)',
-      height: '100%',
-      minHeight: '100vh',
-      width: '100%',
-      overflowY: 'auto',
-      overflowX: 'hidden',
-    }}
-  >
-    {/* Logo */}
-    <div style={{ marginBottom: '48px' }}>
-      <div
-        style={{
-          width: '64px',
-          height: '64px',
-          background: 'linear-gradient(135deg, #1e3a6e, #0f2040)',
-          border: '1px solid rgba(99,179,255,0.2)',
-          borderRadius: '16px',
-          boxShadow:
-            '0 0 0 1px rgba(99,179,255,0.1), 0 8px 32px rgba(0,0,0,0.4), 0 0 60px rgba(59,130,246,0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          padding: '12px',
-          animation: 'logoFloat 3s ease-in-out infinite',
-        }}
-      >
-        <img
-          src={LOGO_URL}
-          alt="TaskFlow Logo"
-          style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(99,179,255,0.4))' }}
-        />
-        {/* PRO badge */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-8px',
-            right: '-8px',
-            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-            borderRadius: '999px',
-            padding: '2px 7px',
-            fontSize: '9px',
-            fontWeight: 700,
-            color: '#fff',
-            letterSpacing: '0.08em',
-            boxShadow: '0 2px 8px rgba(59,130,246,0.5)',
-          }}
-        >
-          PRO
-        </div>
-      </div>
-
-      {/* Wordmark */}
-      <div style={{ marginTop: '20px' }}>
-        <span
-          style={{
-            fontSize: '22px',
-            fontWeight: 700,
-            background: 'linear-gradient(135deg, #fff 30%, #94a3b8)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          TaskFlow
-        </span>
-        <span
-          style={{
-            marginLeft: '6px',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: '#3b82f6',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            verticalAlign: 'middle',
-          }}
-        >
-          Pro
-        </span>
-      </div>
-    </div>
-
-    {/* Headline */}
-    <h1
-      style={{
-        fontSize: '26px',
-        fontWeight: 700,
-        lineHeight: 1.3,
-        letterSpacing: '-0.03em',
-        background: 'linear-gradient(135deg, #ffffff 0%, #94a3b8 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        marginBottom: '16px',
-        wordWrap: 'normal',
-        whiteSpace: 'normal',
-        wordBreak: 'break-word',
-        overflowWrap: 'break-word',
-        maxWidth: '100%',
-      }}
-    >
-      Everything you need to get things done.
-    </h1>
-    <p
-      style={{
-        color: '#64748b',
-        fontSize: '15px',
-        lineHeight: 1.6,
-        marginBottom: '36px',
-        wordWrap: 'normal',
-        whiteSpace: 'normal',
-        overflowWrap: 'break-word',
-        maxWidth: '100%',
-      }}
-    >
-      Join 10,000+ professionals managing their work with TaskFlow Pro.
-    </p>
-
-    {/* Feature bullets */}
-    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 40px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      {FEATURES.map((feat) => (
-        <li key={feat} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: '22px',
-              height: '22px',
-              borderRadius: '50%',
-              background: 'rgba(59,130,246,0.15)',
-              border: '1px solid rgba(59,130,246,0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Check size={12} style={{ color: '#3b82f6' }} />
-          </div>
-          <span style={{ color: '#cbd5e1', fontSize: '14px', fontWeight: 500 }}>{feat}</span>
-        </li>
-      ))}
-    </ul>
-
-    {/* Testimonial */}
-    <Testimonial />
-  </div>
-);
-
-// ─── Main Login Screen ────────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────────────────────
 const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
-
-  // ── Form state (unchanged logic) ─────────────────────────────────
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
-  const [isLoading, setIsLoading]     = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
-
   const setUser = useAuthStore((state) => state.setUser);
 
-  const validate = (): boolean => {
-    const errors: { email?: string; password?: string } = {};
-    if (!email.trim()) {
-      errors.email = 'Email is required.';
-    } else if (!EMAIL_REGEX.test(email)) {
-      errors.email = 'Enter a valid email address.';
-    }
-    if (!password) {
-      errors.password = 'Password is required.';
-    } else if (password.length < 8) {
-      errors.password = 'Password must be at least 8 characters.';
-    }
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setServerError(null);
-    if (!validate()) return;
-    setIsLoading(true);
+    if (!email || !password) { setError('Please fill in all fields.'); return; }
+    setError('');
+    setLoading(true);
     try {
       const res = await authService.login(email, password);
       if (res.success && res.user) {
         setUser(res.user);
         navigate('/home');
       } else {
-        setServerError(res.message || 'Login failed. Please try again.');
+        setError(res.message || 'Invalid credentials. Please try again.');
       }
-    } catch {
-      setServerError('Something went wrong. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      setError(message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-  // ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      {/* Global keyframes + component-scoped styles */}
-      <style>{KEYFRAMES}</style>
+      <style>{STYLES}</style>
 
-      {/* ── Page shell ───────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          width: '100vw',
-          minHeight: '100vh',
-          background: '#050810',
-          overflow: 'hidden',
-          position: 'relative'
-        }}
-      >
-        {/* ── Background layers ────────────────────────────────── */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-            background: [
-              'radial-gradient(ellipse at 20% 20%, rgba(59,130,246,0.15) 0%, transparent 60%)',
-              'radial-gradient(ellipse at 80% 10%, rgba(139,92,246,0.10) 0%, transparent 50%)',
-              'radial-gradient(ellipse at 50% 90%, rgba(6,182,212,0.08) 0%, transparent 50%)',
-            ].join(', '),
-          }}
-        />
-        {/* Dot grid overlay */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
-            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }}
-        />
+      <div className="tf-root">
+        {/* Background */}
+        <div className="tf-bg" />
 
-        {/* ── Split layout container ───────────────────────────── */}
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            display: 'flex',
-            width: '100%',
-            minHeight: '100vh',
-          }}
-        >
-          {/* ── LEFT BRAND PANEL (desktop only) ─────────────────── */}
-          <div className="lf-brand-panel" style={{
-            width: '45%',
-            minWidth: '420px',
-            maxWidth: '520px',
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: '48px 40px',
-            position: 'relative',
-            zIndex: 1,
-            borderRight: '1px solid rgba(255,255,255,0.06)',
-            background: 'rgba(255,255,255,0.02)',
-            flexShrink: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-          }}>
-            <BrandPanel />
+        {/* ── LEFT BRAND PANEL ── */}
+        <div className="tf-left">
+          {/* Logo */}
+          <div>
+            <div className="tf-logo-wrap">
+              <img
+                src="/assets/logo.png"
+                alt="TaskFlow"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  const parent = (e.target as HTMLImageElement).parentElement;
+                  if (parent) {
+                    const span = document.createElement('span');
+                    span.style.cssText = 'font-family:Syne,sans-serif;font-size:22px;font-weight:800;color:#3b82f6';
+                    span.textContent = 'TF';
+                    parent.appendChild(span);
+                  }
+                }}
+              />
+              <span className="tf-pro-badge">PRO</span>
+            </div>
+            <div className="tf-brand-name">
+              TaskFlow <span>PRO</span>
+            </div>
+
+            <h1 className="tf-headline">
+              Everything you need to get things done.
+            </h1>
+            <p className="tf-subtext">
+              Join 10,000+ professionals managing their work smarter with TaskFlow Pro.
+            </p>
+
+            <div className="tf-features">
+              {[
+                'AI-powered task prioritization',
+                'Real-time team collaboration',
+                'Advanced analytics & insights',
+              ].map((f) => (
+                <div className="tf-feature" key={f}>
+                  <CheckCircle2 size={16} />
+                  {f}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* ── RIGHT FORM PANEL ─────────────────────────────────── */}
-          <div
-            className="lf-form-panel"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '100vh',
-              padding: '48px 32px',
-              position: 'relative',
-              zIndex: 1
-            }}
-          >
-            <div style={{ width: '100%', maxWidth: '400px' }}>
-
-              {/* ── Mobile-only logo ──────────────────────────────── */}
-              <div className="lf-mobile-logo lf-anim-logo">
-                <div style={{ position: 'relative', display: 'inline-flex' }}>
-                  <div
-                    style={{
-                      width: '64px',
-                      height: '64px',
-                      background: 'linear-gradient(135deg, #1e3a6e, #0f2040)',
-                      border: '1px solid rgba(99,179,255,0.2)',
-                      borderRadius: '16px',
-                      boxShadow:
-                        '0 0 0 1px rgba(99,179,255,0.1), 0 8px 32px rgba(0,0,0,0.4), 0 0 60px rgba(59,130,246,0.15)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '12px',
-                      animation: 'logoFloat 3s ease-in-out infinite',
-                    }}
-                  >
-                    <img
-                      src={LOGO_URL}
-                      alt="TaskFlow Logo"
-                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                    />
-                    {/* PRO badge */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '-8px',
-                        right: '-8px',
-                        background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                        borderRadius: '999px',
-                        padding: '2px 7px',
-                        fontSize: '9px',
-                        fontWeight: 700,
-                        color: '#fff',
-                        letterSpacing: '0.08em',
-                        boxShadow: '0 2px 8px rgba(59,130,246,0.5)',
-                      }}
-                    >
-                      PRO
-                    </div>
-                  </div>
-                </div>
-                <span
-                  style={{
-                    marginTop: '14px',
-                    fontSize: '20px',
-                    fontWeight: 700,
-                    background: 'linear-gradient(135deg, #fff 30%, #94a3b8)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  TaskFlow Pro
-                </span>
-              </div>
-
-              {/* ── Glass card wrapper (mobile only, strips on desktop) ── */}
-              <div
-                className="lf-form-shell"
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '24px',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  padding: '32px 24px',
-                }}
-              >
-                {/* Heading */}
-                <div className="lf-anim-heading" style={{ marginBottom: '28px' }}>
-                  <h2
-                    style={{
-                      fontSize: '32px',
-                      fontWeight: 700,
-                      letterSpacing: '-0.03em',
-                      background: 'linear-gradient(135deg, #ffffff 0%, #94a3b8 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      margin: 0,
-                    }}
-                  >
-                    Welcome Back
-                  </h2>
-                  <p style={{ color: '#64748b', fontSize: '14px', marginTop: '8px' }}>
-                    Enter your details to access your account
-                  </p>
-                </div>
-
-                {/* ── Form ─────────────────────────────────────────── */}
-                <form onSubmit={handleLogin} noValidate>
-                  <div className="lf-anim-fields" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                    {/* Email */}
-                    <div>
-                      <label
-                        htmlFor="login-email"
-                        style={{
-                          display: 'block',
-                          color: '#94a3b8',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          letterSpacing: '0.05em',
-                          textTransform: 'uppercase',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        Email
-                      </label>
-                      <div className="lf-field" style={{ position: 'relative' }}>
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            height: '100%',
-                            paddingLeft: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            pointerEvents: 'none',
-                          }}
-                        >
-                          <Mail
-                            size={17}
-                            className="lf-icon"
-                            style={{
-                              color: fieldErrors.email ? '#f87171' : '#475569',
-                              transition: 'color 0.2s',
-                            }}
-                          />
-                        </div>
-                        <input
-                          id="login-email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            if (fieldErrors.email) setFieldErrors((fe) => ({ ...fe, email: undefined }));
-                          }}
-                          placeholder="you@company.com"
-                          className={`lf-input${fieldErrors.email ? ' error' : ''}`}
-                          autoComplete="email"
-                        />
-                      </div>
-                      {fieldErrors.email && (
-                        <p
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            color: '#f87171',
-                            fontSize: '12px',
-                            marginTop: '6px',
-                          }}
-                        >
-                          <AlertCircle size={12} /> {fieldErrors.email}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '8px',
-                        }}
-                      >
-                        <label
-                          htmlFor="login-password"
-                          style={{
-                            color: '#94a3b8',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            letterSpacing: '0.05em',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          Password
-                        </label>
-                        <button
-                          type="button"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#3b82f6',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            padding: 0,
-                            textDecoration: 'none',
-                          }}
-                          onMouseEnter={(e) =>
-                            ((e.target as HTMLButtonElement).style.textDecoration = 'underline')
-                          }
-                          onMouseLeave={(e) =>
-                            ((e.target as HTMLButtonElement).style.textDecoration = 'none')
-                          }
-                        >
-                          Forgot?
-                        </button>
-                      </div>
-                      <div className="lf-field" style={{ position: 'relative' }}>
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            height: '100%',
-                            paddingLeft: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            pointerEvents: 'none',
-                          }}
-                        >
-                          <Lock
-                            size={17}
-                            className="lf-icon"
-                            style={{
-                              color: fieldErrors.password ? '#f87171' : '#475569',
-                              transition: 'color 0.2s',
-                            }}
-                          />
-                        </div>
-                        <input
-                          id="login-password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => {
-                            setPassword(e.target.value);
-                            if (fieldErrors.password)
-                              setFieldErrors((fe) => ({ ...fe, password: undefined }));
-                          }}
-                          placeholder="Min. 8 characters"
-                          className={`lf-input${fieldErrors.password ? ' error' : ''}`}
-                          autoComplete="current-password"
-                        />
-                      </div>
-                      {fieldErrors.password && (
-                        <p
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            color: '#f87171',
-                            fontSize: '12px',
-                            marginTop: '6px',
-                          }}
-                        >
-                          <AlertCircle size={12} /> {fieldErrors.password}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Server error */}
-                    {serverError && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          color: '#f87171',
-                          fontSize: '13px',
-                          background: 'rgba(248,113,113,0.08)',
-                          border: '1px solid rgba(248,113,113,0.2)',
-                          borderRadius: '10px',
-                          padding: '10px 14px',
-                        }}
-                      >
-                        <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                        {serverError}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sign-in button */}
-                  <div className="lf-anim-btn" style={{ marginTop: '24px' }}>
-                    <button
-                      id="login-submit"
-                      type="submit"
-                      disabled={isLoading}
-                      className="lf-submit"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                          Signing in…
-                        </>
-                      ) : (
-                        'Sign In'
-                      )}
-                    </button>
-                  </div>
-                </form>
-
-                {/* ── Divider ─────────────────────────────────────── */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    margin: '24px 0',
-                  }}
-                >
-                  <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
-                  <span style={{ color: '#475569', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                    Or continue with
-                  </span>
-                  <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
-                </div>
-
-                {/* ── OAuth buttons ───────────────────────────────── */}
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button type="button" className="lf-oauth" aria-label="Sign in with Google">
-                    <Chrome size={16} />
-                    Google
-                  </button>
-                  <button type="button" className="lf-oauth" aria-label="Sign in with GitHub">
-                    <Github size={16} />
-                    GitHub
-                  </button>
-                </div>
-
-                {/* ── Footer link ─────────────────────────────────── */}
-                <p
-                  style={{
-                    textAlign: 'center',
-                    marginTop: '24px',
-                    color: '#64748b',
-                    fontSize: '14px',
-                  }}
-                >
-                  Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/register')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#3b82f6',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      padding: 0,
-                      fontSize: '14px',
-                    }}
-                  >
-                    Create one
-                  </button>
-                </p>
+          {/* Testimonial */}
+          <div className="tf-testimonial" style={{ animation: 'fadeIn 0.8s ease both', animationDelay: '0.3s' }}>
+            <p>
+              "TaskFlow transformed how our team ships. We cut planning overhead by 40% in the first month alone."
+            </p>
+            <div className="tf-testimonial-author">
+              <div className="tf-avatar">CJ</div>
+              <div>
+                <div className="tf-author-name">Cee Jay</div>
+                <div className="tf-author-role">Full Stack Dev, CS 3-B</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT FORM PANEL ── */}
+        <div className="tf-right">
+          <div className="tf-form-wrap">
+
+            {/* Mobile-only logo */}
+            <div className="tf-mobile-logo">
+              <div className="tf-logo-wrap">
+                <span style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: '#3b82f6' }}>TF</span>
+                <span className="tf-pro-badge">PRO</span>
+              </div>
+            </div>
+
+            <h2 className="tf-welcome">Welcome Back</h2>
+            <p className="tf-welcome-sub">Enter your details to access your account</p>
+
+            {error && (
+              <div style={{
+                marginTop: 16, padding: '10px 14px',
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                borderRadius: 10, color: '#f87171', fontSize: 13,
+              }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <div className="tf-field-group">
+                {/* Email */}
+                <div>
+                  <div className="tf-label-row">
+                    <label className="tf-label">Email</label>
+                  </div>
+                  <div className="tf-input-wrap">
+                    <Mail size={15} className="tf-input-icon" />
+                    <input
+                      id="login-email"
+                      className="tf-input"
+                      type="email"
+                      placeholder="you@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <div className="tf-label-row">
+                    <label className="tf-label">Password</label>
+                    <button type="button" className="tf-forgot">Forgot?</button>
+                  </div>
+                  <div className="tf-input-wrap">
+                    <Lock size={15} className="tf-input-icon" />
+                    <input
+                      id="login-password"
+                      className="tf-input"
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="Min. 8 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      style={{ paddingRight: 42 }}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      className="tf-input-icon-right"
+                      onClick={() => setShowPass(!showPass)}
+                      aria-label={showPass ? 'Hide password' : 'Show password'}
+                    >
+                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sign In */}
+              <button
+                id="login-submit"
+                className="tf-btn"
+                type="submit"
+                disabled={loading}
+                style={{ marginTop: 24 }}
+              >
+                {loading ? (
+                  <><div className="tf-spinner" /> Signing in...</>
+                ) : (
+                  <>Sign In <ArrowRight size={16} /></>
+                )}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="tf-divider">
+              <div className="tf-divider-line" />
+              <span>Or continue with</span>
+              <div className="tf-divider-line" />
+            </div>
+
+            {/* OAuth */}
+            <div className="tf-oauth">
+              <button className="tf-oauth-btn" type="button" aria-label="Sign in with Google">
+                <Chrome size={15} /> Google
+              </button>
+              <button className="tf-oauth-btn" type="button" aria-label="Sign in with GitHub">
+                <Github size={15} /> GitHub
+              </button>
+            </div>
+
+            {/* Footer */}
+            <p className="tf-footer">
+              Don't have an account?{' '}
+              <a onClick={() => navigate('/register')}>Create one</a>
+            </p>
           </div>
         </div>
       </div>

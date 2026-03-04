@@ -31,9 +31,30 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen max-w-md mx-auto bg-slate-50 dark:bg-background-dark flex items-center justify-center">
+      <div className="min-h-screen w-screen bg-[#060912] flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
       </div>
+    );
+  }
+
+  // Auth screens render full-viewport (no max-w-md constraint)
+  const isAuthRoute = location.pathname === '/' || location.pathname === '/register';
+  if (isAuthRoute) {
+    return (
+      <>
+        <Routes>
+          <Route path="/" element={user ? <Navigate to="/home" replace /> : <LoginScreen />} />
+          <Route path="/register" element={user ? <Navigate to="/home" replace /> : <RegisterScreen />} />
+        </Routes>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: { background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' },
+            success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+            error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+          }}
+        />
+      </>
     );
   }
 
@@ -52,13 +73,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 relative z-10 overflow-y-auto hide-scrollbar pb-24">
         <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={
-            user ? <Navigate to="/home" replace /> : <LoginScreen />
-          } />
-          <Route path="/register" element={
-            user ? <Navigate to="/home" replace /> : <RegisterScreen />
-          } />
+          {/* Public Routes — login/register handled above, catch-all here for safety */}
           <Route path="/unauthorized" element={<UnauthorizedScreen />} />
 
           {/* Protected Routes */}
