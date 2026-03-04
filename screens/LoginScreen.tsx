@@ -23,7 +23,7 @@ const FEATURES = [
   'Advanced analytics & insights',
 ];
 
-// ─── CSS-in-JS animations injected once ────────────────────────────────────
+// ─── CSS-in-JS animations ──────────────────────────────────────────────────
 const KEYFRAMES = `
   @keyframes logoFloat {
     0%, 100% { transform: translateY(0px); }
@@ -51,7 +51,7 @@ const KEYFRAMES = `
   .lf-mobile-logo  { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; }
 
   @media (min-width: 768px) {
-    .lf-brand-panel  { display: block; width: 45%; min-height: 100vh; flex-shrink: 0; }
+    .lf-brand-panel  { display: block !important; }
     .lf-mobile-logo  { display: none; }
     /* Strip glass card on desktop — form sits directly on the panel bg */
     .lf-form-shell {
@@ -61,6 +61,12 @@ const KEYFRAMES = `
       -webkit-backdrop-filter: none !important;
       padding: 0 !important;
       border-radius: 0 !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .lf-brand-panel {
+      display: none !important;
     }
   }
 
@@ -161,7 +167,7 @@ const Testimonial: React.FC = () => (
     }}
   >
     <p
-      style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px' }}
+      style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px', wordWrap: 'normal', whiteSpace: 'normal' }}
     >
       "TaskFlow transformed how our team ships. We cut planning overhead by 40% in the first
       month alone."
@@ -205,10 +211,13 @@ const BrandPanel: React.FC = () => (
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
-      padding: '56px 48px',
+      padding: '48px',
       background: 'rgba(255,255,255,0.02)',
       borderRight: '1px solid rgba(255,255,255,0.06)',
       height: '100%',
+      minHeight: '100vh',
+      width: '100%',
+      overflow: 'hidden',
     }}
   >
     {/* Logo */}
@@ -288,7 +297,7 @@ const BrandPanel: React.FC = () => (
     {/* Headline */}
     <h1
       style={{
-        fontSize: '36px',
+        fontSize: '28px',
         fontWeight: 700,
         lineHeight: 1.2,
         letterSpacing: '-0.03em',
@@ -296,11 +305,13 @@ const BrandPanel: React.FC = () => (
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         marginBottom: '16px',
+        wordWrap: 'normal',
+        whiteSpace: 'normal',
       }}
     >
       Everything you need to get things done.
     </h1>
-    <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.6, marginBottom: '36px' }}>
+    <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.6, marginBottom: '36px', wordWrap: 'normal', whiteSpace: 'normal' }}>
       Join 10,000+ professionals managing their work with TaskFlow Pro.
     </p>
 
@@ -391,12 +402,12 @@ const LoginScreen: React.FC = () => {
       {/* ── Page shell ───────────────────────────────────────────── */}
       <div
         style={{
-          minHeight: '100vh',
-          width: '100%',
           display: 'flex',
-          position: 'relative',
+          width: '100vw',
+          minHeight: '100vh',
+          background: '#050810',
           overflow: 'hidden',
-          backgroundColor: '#050810',
+          position: 'relative'
         }}
       >
         {/* ── Background layers ────────────────────────────────── */}
@@ -432,22 +443,35 @@ const LoginScreen: React.FC = () => {
           }}
         >
           {/* ── LEFT BRAND PANEL (desktop only) ─────────────────── */}
-          <div className="lf-brand-panel">
+          <div className="lf-brand-panel" style={{
+            width: '45%',
+            minWidth: '380px',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '48px',
+            position: 'relative',
+            zIndex: 1,
+            borderRight: '1px solid rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.02)',
+            flexShrink: 0
+          }}>
             <BrandPanel />
           </div>
 
           {/* ── RIGHT FORM PANEL ─────────────────────────────────── */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '32px 16px',
-              minHeight: '100vh',
-            }}
-          >
-            <div style={{ width: '100%', maxWidth: '400px' }}>
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            padding: '48px 24px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <div style={{ width: '100%', maxWidth: '400px', margin: '0 auto' }}>
 
               {/* ── Mobile-only logo ──────────────────────────────── */}
               <div className="lf-mobile-logo lf-anim-logo">
