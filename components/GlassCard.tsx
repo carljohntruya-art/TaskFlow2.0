@@ -4,9 +4,10 @@ interface GlassCardProps {
   children: React.ReactNode;
   className?: string;
   gradient?: boolean;
+  onClick?: () => void;
 }
 
-const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', gradient = false }) => {
+const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', gradient = false, onClick }) => {
   const baseStyle = "backdrop-blur-xl border shadow-lg transition-all duration-300";
   
   // Adaptive colors for light/dark mode
@@ -17,7 +18,7 @@ const GlassCard: React.FC<GlassCardProps> = ({ children, className = '', gradien
   const borderStyle = "border-white/40 dark:border-white/10";
 
   return (
-    <div className={`${baseStyle} ${bgStyle} ${borderStyle} ${className}`}>
+    <div className={`${baseStyle} ${bgStyle} ${borderStyle} ${className}`} onClick={onClick}>
       {children}
     </div>
   );

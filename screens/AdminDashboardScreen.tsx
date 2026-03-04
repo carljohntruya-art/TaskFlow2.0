@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Activity, Shield, AlertTriangle, Server, Lock, Zap, Terminal } from 'lucide-react';
+import { ArrowLeft, Users, Shield, AlertTriangle, Server, Lock, Zap, Terminal } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { rateLimitService } from '../services/rateLimitService';
 import { authService } from '../services/authService';
 
@@ -27,12 +27,12 @@ const AdminDashboardScreen: React.FC = () => {
 
   // Simulate real-time updates and fetch security stats
   useEffect(() => {
-    const fetchStats = () => {
+    const fetchStats = async () => {
         const stats = rateLimitService.getStats();
         setSecurityStats(stats);
         
         // Fetch users from Auth Service
-        const allUsers = authService.getAllUsers();
+        const allUsers = await authService.getAllUsers();
         // Add mock status since our user model doesn't store presence
         const enrichedUsers = allUsers.map(u => ({
             ...u,

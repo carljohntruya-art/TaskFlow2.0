@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -110,6 +111,14 @@ const App: React.FC = () => {
           {isModalOpen && <NewTaskModal onClose={() => setIsModalOpen(false)} />}
         </>
       )}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: { background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+        }}
+      />
     </div>
   );
 };

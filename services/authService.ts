@@ -43,5 +43,28 @@ export const authService = {
     } catch (error: any) {
       return error.response?.data || { success: false, message: 'Not authenticated' };
     }
+  },
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const response = await axiosInstance.get('/api/auth/users');
+      const users = response.data.data;
+      return users.map((u: any) => ({
+        ...u,
+        avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`
+      }));
+    } catch (error: any) {
+      console.error('Failed to fetch users:', error);
+      return [];
+    }
+  },
+
+  async updateProfile(name: string): Promise<AuthResponse> {
+    try {
+      const response = await axiosInstance.patch('/api/auth/profile', { name });
+      return { success: true, data: response.data.data };
+    } catch (error: any) {
+      return error.response?.data || { success: false, message: 'Profile update failed' };
+    }
   }
 };

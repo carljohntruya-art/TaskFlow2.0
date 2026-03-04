@@ -1,15 +1,51 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Edit2, User, Bell, Palette, ChevronRight, LogOut, Settings, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Edit2, User, Bell, ChevronRight, LogOut, Settings, ShieldCheck, Save, X } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
 import { useAuthStore } from '../store/authStore';
+import { authService } from '../services/authService';
+import toast from 'react-hot-toast';
 
 const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, logout, setUser } = useAuthStore();
   
   // Fallback if user is null
-  const userData = user || { name: 'Guest', email: 'guest@taskflow.com', role: 'user', avatar: 'https://picsum.photos/200' };
+  const userData = user || { name: 'Guest', email: 'guest@taskflow.com', role: 'user' as const, avatar: 'https://picsum.photos/200', id: '' };
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(userData.name);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!editName.trim()) {
+      toast.error('Name cannot be empty.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const response = await authService.updateProfile(editName.trim());
+      if (response.success && response.data) {
+        setUser({
+          ...userData,
+          name: response.data.name,
+        });
+        toast.success('Profile updated successfully!');
+        setIsEditing(false);
+      } else {
+        toast.error(response.message || 'Failed to update profile.');
+      }
+    } catch (err) {
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditName(userData.name);
+    setIsEditing(false);
+  };
 
   return (
     <div className="px-6 pt-6 pb-24">
@@ -28,39 +64,84 @@ const ProfileScreen: React.FC = () => {
       <div className="flex flex-col items-center mt-8 mb-8">
          <div className="relative group cursor-pointer">
             <div className="w-28 h-28 rounded-full p-1 bg-linear-to-br from-primary/80 to-cyan-400/80 shadow-[0_0_20px_rgba(37,106,244,0.4)]">
-               <img src={userData.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full border-4 border-background-dark" />
-            </div>
-            <div className="absolute bottom-1 right-1 bg-background-dark rounded-full p-1.5 border border-white/10 shadow-lg">
-               <Edit2 size={14} className="text-white" />
+               <img src={userData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.name}`} alt="Avatar" className="w-full h-full object-cover rounded-full border-4 border-background-dark" />
             </div>
          </div>
          <h2 className="mt-4 text-2xl font-bold text-white tracking-tight">{userData.name}</h2>
          <p className="text-slate-400 text-sm font-medium">{userData.email}</p>
          <div className="flex gap-3 mt-4">
-            {userData.role === 'admin' && (
-                <span className="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-xs font-semibold shadow-[0_0_10px_rgba(37,106,244,0.3)]">Administrator</span>
+            {/* Role Badge */}
+            {userData.role === 'admin' ? (
+              <span className="px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-xs font-semibold shadow-[0_0_10px_rgba(37,106,244,0.3)]">Administrator</span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">User</span>
             )}
-            <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">Pro Plan</span>
          </div>
       </div>
 
       {/* Personal Info */}
       <GlassCard className="rounded-2xl p-6 mb-6">
-         <div className="flex items-center gap-3 mb-5">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-               <User size={20} />
+         <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+               <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                  <User size={20} />
+               </div>
+               <h3 className="text-lg font-semibold text-white">Personal Information</h3>
             </div>
-            <h3 className="text-lg font-semibold text-white">Personal Information</h3>
+            {!isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+              >
+                <Edit2 size={14} />
+                Edit Profile
+              </button>
+            )}
          </div>
          <div className="space-y-5">
             <div className="space-y-1.5">
                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Full Name</label>
-               <input type="text" defaultValue={userData.name} className="w-full bg-[#101622]/60 border border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-primary focus:border-primary text-white" />
+               {isEditing ? (
+                 <input
+                   type="text"
+                   value={editName}
+                   onChange={(e) => setEditName(e.target.value)}
+                   autoFocus
+                   className="w-full bg-[#101622]/60 border border-primary/40 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-primary focus:border-primary text-white"
+                 />
+               ) : (
+                 <p className="w-full bg-[#101622]/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-white">{userData.name}</p>
+               )}
             </div>
             <div className="space-y-1.5">
-               <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Bio</label>
-               <textarea defaultValue="Product Designer focused on building clean and functional user interfaces." className="w-full bg-[#101622]/60 border border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-primary focus:border-primary text-white resize-none h-24" />
+               <label className="text-xs font-medium text-slate-400 uppercase tracking-wide">Email Address</label>
+               <p className="w-full bg-[#101622]/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-400">
+                 {userData.email}
+                 <span className="ml-2 text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-slate-500">Read-only</span>
+               </p>
             </div>
+            
+            {isEditing && (
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-primary to-cyan-500 text-white font-semibold text-sm shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Save size={16} />
+                  {isSaving ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  className="px-5 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 font-medium text-sm hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
          </div>
       </GlassCard>
 

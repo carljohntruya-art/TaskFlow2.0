@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, AlignLeft, BarChart2, Folder, ChevronDown, Bell, Repeat, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
+import { X, Calendar, BarChart2, Folder, ChevronDown, Bell, Repeat, Upload, Trash2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import GlassCard from './GlassCard';
 import { Task } from '../types';
+import axiosInstance from '../api/axiosInstance';
+import toast from 'react-hot-toast';
 
 interface NewTaskModalProps {
   onClose: () => void;
-  task?: Task; // Optional task for editing mode
+  task?: Task;
   onSave?: (task: Task) => void;
+  defaultDueDate?: string; // pre-fill due date (YYYY-MM-DD) from CalendarScreen
 }
 
 const CATEGORIES = ['Finance', 'Design', 'Development', 'Sales', 'Marketing', 'General'];
@@ -18,17 +20,32 @@ const RECURRENCE_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
-const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) => {
+// Helper: convert ISO string or date string to YYYY-MM-DD for <input type="date">
+const toDateInputValue = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  if (dateStr.includes('T')) return dateStr.split('T')[0];
+  // If it looks like a date already (YYYY-MM-DD) return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  return '';
+};
+
+const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave, defaultDueDate }) => {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState<Task['priority']>(task?.priority || 'medium');
   const [category, setCategory] = useState(task?.category || 'General');
   const [reminderTime, setReminderTime] = useState(task?.reminderTime || '');
   const [recurrence, setRecurrence] = useState<Task['recurrence'] | ''>(task?.recurrence || '');
-  const [attachments, setAttachments] = useState<string[]>(task?.attachments || []);
+  // dueDate is stored as YYYY-MM-DD string for the date input
+  const [dueDate, setDueDate] = useState<string>(
+    toDateInputValue(task?.dueDateStr) || defaultDueDate || new Date().toISOString().split('T')[0]
+  );
+  // imageUrl is the remote URL returned by /api/upload
+  const [imageUrl, setImageUrl] = useState<string>(task?.imageUrl || '');
+  const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   useEffect(() => {
     if (task) {
       setTitle(task.title);
@@ -37,61 +54,33 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
       setCategory(task.category);
       setReminderTime(task.reminderTime || '');
       setRecurrence(task.recurrence || '');
-      setAttachments(task.attachments || []);
+      setDueDate(toDateInputValue(task.dueDateStr) || new Date().toISOString().split('T')[0]);
+      setImageUrl(task.imageUrl || '');
     }
   }, [task]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const sanitizedTitle = DOMPurify.sanitize(title);
-    const sanitizedDescription = DOMPurify.sanitize(description);
-
-    const updatedTask: Task = {
-      id: task?.id || Math.random().toString(36).substr(2, 9),
-      title: sanitizedTitle,
-      description: sanitizedDescription,
-      priority,
-      status: task?.status || 'pending',
-      dueDateStr: task?.dueDateStr || 'Today',
-      dueTime: task?.dueTime,
-      category: category,
-      attendees: task?.attendees,
-      reminderTime: reminderTime || undefined,
-      recurrence: recurrence || undefined,
-      attachments: attachments,
-    };
-
-    if (onSave) {
-      onSave(updatedTask);
-    } else {
-      // Create directly using API if accessed from global BottomNav
-      try {
-         const { taskService } = await import('../services/taskService');
-         await taskService.createTask(updatedTask);
-         window.dispatchEvent(new Event('task-updated'));
-      } catch (err) {
-         // Silently fail for now
-      }
-    }
-    onClose();
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processFiles(Array.from(e.target.files));
+  const uploadImageToServer = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      setIsUploading(true);
+      const response = await axiosInstance.post('/api/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data.data?.url || null;
+    } catch (err) {
+      toast.error('Image upload failed. Please try again.');
+      return null;
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const processFiles = (files: File[]) => {
-    files.forEach(file => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setAttachments(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      }
-    });
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImageToServer(file);
+    if (url) setImageUrl(url);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -104,16 +93,60 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(Array.from(e.dataTransfer.files));
-    }
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const url = await uploadImageToServer(file);
+    if (url) setImageUrl(url);
   };
 
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+  const removeImage = () => {
+    setImageUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sanitizedTitle = DOMPurify.sanitize(title.trim());
+    const sanitizedDescription = DOMPurify.sanitize(description.trim());
+
+    if (!sanitizedTitle) {
+      toast.error('Title is required.');
+      return;
+    }
+
+    const updatedTask: Task = {
+      id: task?.id || Math.random().toString(36).substr(2, 9),
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      priority,
+      status: task?.status || 'pending',
+      dueDateStr: dueDate, // always a YYYY-MM-DD string
+      dueTime: task?.dueTime,
+      category,
+      attendees: task?.attendees,
+      reminderTime: reminderTime || undefined,
+      recurrence: recurrence || undefined,
+      imageUrl: imageUrl || undefined,
+      attachments: task?.attachments,
+    };
+
+    if (onSave) {
+      onSave(updatedTask);
+    } else {
+      try {
+        const { taskService } = await import('../services/taskService');
+        await taskService.createTask(updatedTask);
+        window.dispatchEvent(new Event('task-updated'));
+        toast.success('Task created!');
+      } catch (err) {
+        toast.error('Failed to create task. Please try again.');
+        return;
+      }
+    }
+    onClose();
   };
 
   return (
@@ -133,6 +166,7 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+             {/* Title */}
              <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-primary uppercase tracking-wider ml-1">Title</label>
                 <input 
@@ -141,10 +175,12 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="What needs to be done?" 
+                  required
                   className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-4 py-3 focus:ring-1 focus:ring-primary focus:border-primary transition-all text-base"
                 />
              </div>
 
+             {/* Description */}
              <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Description</label>
                 <textarea 
@@ -158,75 +194,78 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
 
              {/* Image Upload Section */}
              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Attachments</label>
-                
-                {/* Drag and Drop Area */}
-                <div 
-                   className={`relative w-full border-2 border-dashed rounded-xl p-4 transition-all duration-300 flex flex-col items-center justify-center text-center cursor-pointer ${
-                      isDragging 
-                        ? 'border-primary bg-primary/10' 
-                        : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-white/5 hover:border-primary/50 hover:bg-slate-100 dark:hover:bg-white/10'
-                   }`}
-                   onDragOver={handleDragOver}
-                   onDragLeave={handleDragLeave}
-                   onDrop={handleDrop}
-                   onClick={() => fileInputRef.current?.click()}
-                >
-                   <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept="image/*" 
-                      multiple 
-                      onChange={handleFileSelect}
-                   />
-                   
-                   <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center mb-2 text-slate-500 dark:text-slate-400">
-                      <Upload size={20} />
-                   </div>
-                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                      Click or drag images here
-                   </p>
-                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Supports JPG, PNG, GIF
-                   </p>
-                </div>
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Task Image</label>
 
-                {/* Preview List */}
-                {attachments.length > 0 && (
-                   <div className="flex gap-2 overflow-x-auto hide-scrollbar pt-2 pb-1">
-                      {attachments.map((src, index) => (
-                         <div key={index} className="relative group shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10">
-                            <img src={src} alt={`Attachment ${index}`} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                               <button 
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); removeAttachment(index); }}
-                                  className="p-1.5 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors"
-                               >
-                                  <Trash2 size={14} />
-                               </button>
-                            </div>
-                         </div>
-                      ))}
-                   </div>
+                {imageUrl ? (
+                  <div className="relative group w-full h-40 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
+                    <img
+                      src={imageUrl.startsWith('/uploads')
+                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${imageUrl}`
+                        : imageUrl}
+                      alt="Task attachment"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                       <button
+                          type="button"
+                          onClick={removeImage}
+                          className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors"
+                       >
+                          <Trash2 size={16} />
+                       </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={`relative w-full border-2 border-dashed rounded-xl p-4 transition-all duration-300 flex flex-col items-center justify-center text-center cursor-pointer ${
+                      isUploading
+                        ? 'border-primary bg-primary/5 opacity-70 cursor-wait'
+                        : isDragging 
+                          ? 'border-primary bg-primary/10' 
+                          : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-white/5 hover:border-primary/50 hover:bg-slate-100 dark:hover:bg-white/10'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                  >
+                     <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleFileSelect}
+                     />
+                     
+                     <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center mb-2 text-slate-500 dark:text-slate-400">
+                        <Upload size={20} className={isUploading ? 'animate-bounce' : ''} />
+                     </div>
+                     <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {isUploading ? 'Uploading…' : 'Click or drag an image here'}
+                     </p>
+                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        JPG, PNG, WebP · max 5 MB
+                     </p>
+                  </div>
                 )}
              </div>
 
              <div className="grid grid-cols-2 gap-4">
+                {/* Due Date — fully editable date input */}
                 <div className="space-y-1.5">
                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Due Date</label>
                    <div className="relative group">
                       <input 
-                        type="text" 
-                        readOnly 
-                        value={task?.dueDateStr || "Today, 5:00 PM"} 
-                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white cursor-pointer rounded-lg pl-10 pr-4 py-3 focus:ring-1 focus:ring-primary focus:border-primary text-sm truncate"
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-lg pl-10 pr-4 py-3 focus:ring-1 focus:ring-primary focus:border-primary text-sm [color-scheme:light] dark:[color-scheme:dark]"
                       />
-                      <Calendar size={18} className="absolute left-3 top-3 text-primary" />
+                      <Calendar size={18} className="absolute left-3 top-3 text-primary pointer-events-none" />
                    </div>
                 </div>
 
+                {/* Category */}
                 <div className="space-y-1.5">
                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Category</label>
                    <div className="relative group">
@@ -239,13 +278,14 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
                           <option key={cat} value={cat} className="bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white py-1">{cat}</option>
                         ))}
                       </select>
-                      <Folder size={18} className="absolute left-3 top-3 text-slate-400" />
+                      <Folder size={18} className="absolute left-3 top-3 text-slate-400 pointer-events-none" />
                       <ChevronDown size={16} className="absolute right-3 top-3.5 text-slate-500 pointer-events-none" />
                    </div>
                 </div>
              </div>
 
              <div className="grid grid-cols-2 gap-4">
+                {/* Set Reminder */}
                 <div className="space-y-1.5">
                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Set Reminder</label>
                    <div className="relative group">
@@ -259,6 +299,7 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
                    </div>
                 </div>
 
+                {/* Recurring */}
                 <div className="space-y-1.5">
                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Recurring</label>
                    <div className="relative group">
@@ -277,10 +318,11 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
                 </div>
              </div>
 
+             {/* Priority */}
              <div className="space-y-1.5">
                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1">Priority</label>
                <div className="grid grid-cols-3 gap-3 p-1 bg-slate-100 dark:bg-black/20 rounded-xl border border-slate-200 dark:border-white/5">
-                 {(['low', 'medium', 'high'] as const).map((p, idx) => (
+                 {(['low', 'medium', 'high'] as const).map((p) => (
                    <label key={p} className="cursor-pointer relative">
                       <input 
                         type="radio" 
@@ -301,7 +343,8 @@ const NewTaskModal: React.FC<NewTaskModalProps> = ({ onClose, task, onSave }) =>
              <div className="pt-2 flex gap-3">
                 <button 
                   type="submit" 
-                  className="w-full bg-gradient-to-r from-primary to-cyan-500 hover:to-cyan-400 text-white font-semibold py-3.5 px-6 rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all transform flex justify-center items-center gap-2"
+                  disabled={isUploading}
+                  className="w-full bg-gradient-to-r from-primary to-cyan-500 hover:to-cyan-400 text-white font-semibold py-3.5 px-6 rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all transform flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {task ? 'Save Changes' : 'Create Task'}
                 </button>

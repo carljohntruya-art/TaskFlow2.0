@@ -22,17 +22,25 @@ const mapBackendToTask = (raw: any): Task => ({
   dueDateStr: raw.due_date ? new Date(raw.due_date).toISOString() : 'Today',
   createdAt: raw.created_at,
   category: 'General', // Backend doesn't have category yet
+  imageUrl: raw.image_url,
   attendees: [],
 });
 
 export const taskService = {
   async createTask(data: Task) {
+    // Normalize dueDate to YYYY-MM-DD
+    let dueDate: string = new Date().toISOString().split('T')[0];
+    if (data.dueDateStr && data.dueDateStr !== 'Today' && data.dueDateStr !== 'Tomorrow' && data.dueDateStr !== 'Yesterday') {
+      dueDate = data.dueDateStr.includes('T') ? data.dueDateStr.split('T')[0] : data.dueDateStr;
+    }
+
     const response = await axiosInstance.post('/api/tasks', {
       title: data.title,
       description: data.description,
       status: mapToBackendStatus(data.status),
       priority: data.priority,
-      dueDate: data.dueDateStr !== 'Today' && data.dueDateStr !== 'Tomorrow' && data.dueDateStr !== 'Yesterday' ? data.dueDateStr : new Date().toISOString()
+      dueDate,
+      imageUrl: data.imageUrl || null,
     });
     return response.data.data ? mapBackendToTask(response.data.data) : null;
   },
@@ -42,12 +50,25 @@ export const taskService = {
     return Array.isArray(response.data.data) ? response.data.data.map(mapBackendToTask) : [];
   },
 
+  async getTaskById(id: string): Promise<Task | null> {
+    try {
+      const response = await axiosInstance.get(`/api/tasks/${id}`);
+      return response.data.data ? mapBackendToTask(response.data.data) : null;
+    } catch (error) {
+      return null;
+    }
+  },
+
   async updateTask(id: string, data: Partial<Task>) {
     const backendData: any = {};
     if (data.title) backendData.title = data.title;
     if (data.description !== undefined) backendData.description = data.description;
     if (data.status) backendData.status = mapToBackendStatus(data.status);
     if (data.priority) backendData.priority = data.priority;
+    if (data.imageUrl !== undefined) backendData.imageUrl = data.imageUrl;
+    if (data.dueDateStr) {
+      backendData.dueDate = data.dueDateStr.includes('T') ? data.dueDateStr.split('T')[0] : data.dueDateStr;
+    }
 
     const response = await axiosInstance.patch(`/api/tasks/${id}`, backendData);
     return response.data.data ? mapBackendToTask(response.data.data) : null;

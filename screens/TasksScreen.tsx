@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Edit2, Trash2, Calendar, Filter, Search, X, Sun, Moon, Bell, Check, History, Repeat, Paperclip, ListChecks, FolderInput, CheckCircle2, Image as ImageIcon, ArrowUpDown, Play, Circle } from 'lucide-react';
+import { Clock, Edit2, Trash2, Calendar, Search, X, Sun, Moon, Bell, Check, History, Repeat, Paperclip, ListChecks, FolderInput, CheckCircle2, ArrowUpDown, Play } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
 import { Task } from '../types';
 import NewTaskModal from '../components/NewTaskModal';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 import { taskService } from '../services/taskService';
 
@@ -84,6 +86,7 @@ const TaskSkeleton: React.FC = () => (
 );
 
 const TasksScreen: React.FC = () => {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'done'>('all');
@@ -113,8 +116,12 @@ const TasksScreen: React.FC = () => {
         setIsLoading(true);
         const data = await taskService.getTasks();
         setTasks(data);
-      } catch (error) {
-        // Silently handle error
+      } catch (error: any) {
+        if (error?.response?.status === 401) {
+          navigate('/login');
+        } else {
+          toast.error('Failed to load tasks. Please try again.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -238,14 +245,20 @@ const TasksScreen: React.FC = () => {
       if (!tasks.some(t => t.id === updatedTask.id)) {
           // New task: ID handled by DB
           const newTask = await taskService.createTask(updatedTask);
-          if (newTask) setTasks(prev => [newTask, ...prev]);
+          if (newTask) {
+            setTasks(prev => [newTask, ...prev]);
+            toast.success('Task created successfully!');
+          }
       } else {
           // Update existing
           const updated = await taskService.updateTask(updatedTask.id, updatedTask);
-          if (updated) setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+          if (updated) {
+            setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+            toast.success('Task updated successfully!');
+          }
       }
-    } catch(err) {
-      // Error handling
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save task. Please try again.');
     }
     setEditingTask(null);
   };
@@ -270,15 +283,14 @@ const TasksScreen: React.FC = () => {
       }
 
       if (newStatus === 'completed' && task.recurrence) {
-         // simplified logic: let the backend handle this in real-world, or manually push a new one:
          const nextTask = { ...task, status: 'pending' as const };
          const createdRecurring = await taskService.createTask(nextTask);
          if (createdRecurring) {
             setTasks(prev => [createdRecurring, ...prev]);
          }
       }
-    } catch (e) {
-      // silent fail
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to update task status.');
     }
   };
 
@@ -323,8 +335,8 @@ const TasksScreen: React.FC = () => {
          setIsSelectionMode(false);
          setSelectedTaskIds([]);
          triggerNotification('Deleted', 'Selected tasks have been removed.');
-       } catch (e) {
-         // handle error
+       } catch (e: any) {
+         toast.error(e?.response?.data?.message || 'Failed to delete selected tasks.');
        }
     }
   };
@@ -349,8 +361,8 @@ const TasksScreen: React.FC = () => {
       setIsSelectionMode(false);
       setSelectedTaskIds([]);
       triggerNotification('Completed', `${selectedTaskIds.length} tasks marked as done.`);
-    } catch(e) {
-      // suppress
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to complete selected tasks.');
     }
   };
 
@@ -593,14 +605,24 @@ const TasksScreen: React.FC = () => {
               <div className="w-16 h-16 bg-slate-200 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
                  <Search size={32} className="text-slate-500 dark:text-slate-600" />
               </div>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">No tasks found</p>
-              <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Try adjusting your filters</p>
-              <button 
-                onClick={() => { setSearchQuery(''); setCategoryFilters(['All']); setFilter('all'); }}
-                className="mt-4 text-primary text-sm font-medium hover:underline"
-              >
-                Clear all filters
-              </button>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">
+                {filter === 'all' && !searchQuery && categoryFilters.includes('All')
+                  ? 'No tasks yet. Click + to create your first task.'
+                  : 'No tasks found'}
+              </p>
+              <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
+                {filter === 'all' && !searchQuery && categoryFilters.includes('All')
+                  ? ''
+                  : 'Try adjusting your filters'}
+              </p>
+              {!(filter === 'all' && !searchQuery && categoryFilters.includes('All')) && (
+                <button 
+                  onClick={() => { setSearchQuery(''); setCategoryFilters(['All']); setFilter('all'); }}
+                  className="mt-4 text-primary text-sm font-medium hover:underline"
+                >
+                  Clear all filters
+                </button>
+              )}
            </div>
         ) : (
            sortedTasks.map(task => (
@@ -810,6 +832,19 @@ const TaskItemComponent: React.FC<TaskItemProps> = ({ task, onClick, onToggle, i
                             <span>{task.category}</span>
                          </div>
                     </div>
+
+                    {/* Task Image Thumbnail */}
+                    {task.imageUrl && (
+                      <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10 h-28">
+                        <img
+                          src={task.imageUrl.startsWith('/uploads')
+                            ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${task.imageUrl}`
+                            : task.imageUrl}
+                          alt="Task attachment"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                 </div>
 
                 {/* Edit Action (Visible on Hover for desktop, always rendered but hidden via opacity) */}

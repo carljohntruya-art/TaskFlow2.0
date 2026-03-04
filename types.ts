@@ -24,6 +24,7 @@ export interface Task {
   reminderTime?: string; // ISO string for the specific reminder time
   completedAt?: string; // ISO string for when the task was completed
   recurrence?: 'daily' | 'weekly' | 'monthly';
+  imageUrl?: string;
   attachments?: string[]; // Array of image URLs or base64 strings
   createdAt?: string; // ISO string for creation time
 }
