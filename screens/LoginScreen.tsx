@@ -68,6 +68,10 @@ const KEYFRAMES = `
     .lf-brand-panel {
       display: none !important;
     }
+    .lf-form-panel {
+      width: 100vw !important;
+      min-height: 100vh !important;
+    }
   }
 
   /* ── Input focus glow ─────────────────────────────────────────────── */
@@ -163,11 +167,21 @@ const Testimonial: React.FC = () => (
       background: 'rgba(255,255,255,0.03)',
       border: '1px solid rgba(255,255,255,0.07)',
       borderRadius: '16px',
-      padding: '20px 24px',
+      padding: '16px',
+      maxWidth: '100%',
+      overflowWrap: 'break-word',
     }}
   >
     <p
-      style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px', wordWrap: 'normal', whiteSpace: 'normal' }}
+      style={{
+        color: '#94a3b8',
+        fontSize: '14px',
+        lineHeight: '1.6',
+        marginBottom: '16px',
+        wordWrap: 'normal',
+        whiteSpace: 'normal',
+        overflowWrap: 'break-word',
+      }}
     >
       "TaskFlow transformed how our team ships. We cut planning overhead by 40% in the first
       month alone."
@@ -211,13 +225,14 @@ const BrandPanel: React.FC = () => (
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
-      padding: '48px',
+      padding: '48px 40px',
       background: 'rgba(255,255,255,0.02)',
       borderRight: '1px solid rgba(255,255,255,0.06)',
       height: '100%',
       minHeight: '100vh',
       width: '100%',
-      overflow: 'hidden',
+      overflowY: 'auto',
+      overflowX: 'hidden',
     }}
   >
     {/* Logo */}
@@ -297,9 +312,9 @@ const BrandPanel: React.FC = () => (
     {/* Headline */}
     <h1
       style={{
-        fontSize: '28px',
+        fontSize: '26px',
         fontWeight: 700,
-        lineHeight: 1.2,
+        lineHeight: 1.3,
         letterSpacing: '-0.03em',
         background: 'linear-gradient(135deg, #ffffff 0%, #94a3b8 100%)',
         WebkitBackgroundClip: 'text',
@@ -307,11 +322,25 @@ const BrandPanel: React.FC = () => (
         marginBottom: '16px',
         wordWrap: 'normal',
         whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+        maxWidth: '100%',
       }}
     >
       Everything you need to get things done.
     </h1>
-    <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.6, marginBottom: '36px', wordWrap: 'normal', whiteSpace: 'normal' }}>
+    <p
+      style={{
+        color: '#64748b',
+        fontSize: '15px',
+        lineHeight: 1.6,
+        marginBottom: '36px',
+        wordWrap: 'normal',
+        whiteSpace: 'normal',
+        overflowWrap: 'break-word',
+        maxWidth: '100%',
+      }}
+    >
       Join 10,000+ professionals managing their work with TaskFlow Pro.
     </p>
 
@@ -403,6 +432,7 @@ const LoginScreen: React.FC = () => {
       <div
         style={{
           display: 'flex',
+          flexDirection: 'row',
           width: '100vw',
           minHeight: '100vh',
           background: '#050810',
@@ -414,7 +444,7 @@ const LoginScreen: React.FC = () => {
         <div
           aria-hidden="true"
           style={{
-            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
             background: [
               'radial-gradient(ellipse at 20% 20%, rgba(59,130,246,0.15) 0%, transparent 60%)',
               'radial-gradient(ellipse at 80% 10%, rgba(139,92,246,0.10) 0%, transparent 50%)',
@@ -445,33 +475,40 @@ const LoginScreen: React.FC = () => {
           {/* ── LEFT BRAND PANEL (desktop only) ─────────────────── */}
           <div className="lf-brand-panel" style={{
             width: '45%',
-            minWidth: '380px',
+            minWidth: '420px',
+            maxWidth: '520px',
             minHeight: '100vh',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            padding: '48px',
+            padding: '48px 40px',
             position: 'relative',
             zIndex: 1,
             borderRight: '1px solid rgba(255,255,255,0.06)',
             background: 'rgba(255,255,255,0.02)',
-            flexShrink: 0
+            flexShrink: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
           }}>
             <BrandPanel />
           </div>
 
           {/* ── RIGHT FORM PANEL ─────────────────────────────────── */}
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            padding: '48px 24px',
-            position: 'relative',
-            zIndex: 1
-          }}>
-            <div style={{ width: '100%', maxWidth: '400px', margin: '0 auto' }}>
+          <div
+            className="lf-form-panel"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '100vh',
+              padding: '48px 32px',
+              position: 'relative',
+              zIndex: 1
+            }}
+          >
+            <div style={{ width: '100%', maxWidth: '400px' }}>
 
               {/* ── Mobile-only logo ──────────────────────────────── */}
               <div className="lf-mobile-logo lf-anim-logo">
