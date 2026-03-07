@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Layers, CheckCircle2, Clock, TrendingUp, Calendar, Folder } from 'lucide-react';
+import { Layers, CheckCircle2, Clock, TrendingUp, Calendar, Folder, Trash2 } from 'lucide-react';
 import GlassCard from '../components/GlassCard';
+import NewTaskModal from '../components/NewTaskModal';
 import { useAuthStore } from '../store/authStore';
 import { taskService } from '../services/taskService';
 import { Task } from '../types';
+import toast from 'react-hot-toast';
 
 const HomeScreen: React.FC = () => {
   const { user } = useAuthStore();
   const [tasks, setTasks] = useState<Task[]>([]);
+  // Bug 4 fix: state to track which task is being edited
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -32,6 +36,31 @@ const HomeScreen: React.FC = () => {
   const completedCount = tasks.filter(t => t.status === 'completed').length;
   const pendingCount = tasks.length - completedCount;
   const productivity = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+  // Bug 4 fix: handler invoked by NewTaskModal onSave
+  const handleTaskUpdate = async (updatedTask: Task) => {
+    try {
+      const updated = await taskService.updateTask(updatedTask.id, updatedTask);
+      if (updated) {
+        setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+        toast.success('Task updated!');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update task.');
+    }
+    setEditingTask(null);
+  };
+
+  // Bug 5 fix: per-task delete handler
+  const handleDelete = async (taskId: string) => {
+    try {
+      await taskService.deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      toast.success('Task deleted');
+    } catch (error) {
+      toast.error('Failed to delete task');
+    }
+  };
 
   return (
     <div className="px-6 pt-12 pb-6">
@@ -94,7 +123,12 @@ const HomeScreen: React.FC = () => {
 
       <div className="space-y-3">
         {tasks.slice(0, 5).map((task, idx) => (
-          <div key={idx} className="group relative rounded-2xl p-4 bg-[#1A202C] border border-white/5 shadow-sm hover:shadow-md transition-all active:scale-[0.98]">
+          // Bug 4 fix: clicking the card opens the edit modal
+          <div
+            key={idx}
+            className="group relative rounded-2xl p-4 bg-[#1A202C] border border-white/5 shadow-sm hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
+            onClick={() => setEditingTask(task)}
+          >
              <div className={`absolute left-0 top-4 bottom-4 w-1 bg-${task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'yellow' : 'green'}-500 rounded-r-lg`}></div>
              <div className="flex items-start gap-3 pl-2">
                 <div className="pt-1">
@@ -118,11 +152,31 @@ const HomeScreen: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                {/* Bug 5 fix: delete button stops propagation so it doesn't open edit modal */}
+                <button
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-red-500/10 text-slate-500 hover:text-red-400 ml-1 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(task.id);
+                  }}
+                  title="Delete task"
+                >
+                  <Trash2 size={15} />
+                </button>
              </div>
           </div>
         ))}
         {tasks.length === 0 && <p className="text-center text-sm text-slate-400 mt-4">No tasks found. Create one!</p>}
       </div>
+
+      {/* Bug 4 fix: edit modal rendered when a task is selected */}
+      {editingTask && (
+        <NewTaskModal
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onSave={handleTaskUpdate}
+        />
+      )}
     </div>
   );
 };
